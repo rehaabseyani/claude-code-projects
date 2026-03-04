@@ -25,7 +25,7 @@ git commit -m "Description"
 git push
 ```
 
-Each project gets its own commit. Commit messages should name the project and summarize what changed.
+**Commit and push after every meaningful unit of work** — a new file, a completed feature, a bug fix, a significant edit. Never leave completed work uncommitted. Commit messages should name the project and summarize what changed. Push immediately after committing so GitHub always reflects the latest state.
 
 ## Architecture
 
