@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Duck Shooter</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Press Start 2P', 'Courier New', monospace;
+    }
+    canvas {
+      display: block;
+      border: 4px solid #FFD700;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="800" height="500"></canvas>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = 800, H = 500;
+const GROUND_Y = 420;
+const HUD_H = 50;
+
+// ── Level configs ────────────────────────────────────────────────────────────
+const LEVELS = [
+  { goal: 5,  interval: 2200, speed: 1.8, pattern: 'straight', label: '1' },
+  { goal: 8,  interval: 1800, speed: 2.5, pattern: 'wave',     label: '2' },
+  { goal: 10, interval: 1500, speed: 3.0, pattern: 'swoop',    label: '3' },
+  { goal: 12, interval: 1200, speed: 3.8, pattern: 'zigzag',   label: '4' },
+  { goal: 15, interval: 900,  speed: 5.0, pattern: 'mixed',    label: '5' },
+];
+
+// ── State ────────────────────────────────────────────────────────────────────
+let state, score, lives, level, ducksShot, spawnTimer, levelUpTimer, lastTime;
+let ducks, bullets, particles, clouds;
+
+const keys = {};
+document.addEventListener('keydown', e => {
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'].includes(e.code)) e.preventDefault();
+  if (!keys[e.code]) {
+    keys[e.code] = true;
+    onKeyPress(e.code);
+  }
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+function onKeyPress(code) {
+  if (code !== 'Enter') return;
+  if (state === 'menu')     startGame();
+  else if (state === 'playing') tryShoot();
+  else if (state === 'gameover') startGame();
+}
+
+// ── Player ───────────────────────────────────────────────────────────────────
+const P = {
+  x: 80, y: 340, w: 42, h: 64,
+  spd: 220,
+  frame: 0, frameT: 0,
+  shootT: 0, shootCooldown: 320,
+  shooting: false, shootDisplay: 0,
+};
+const PX = [40, W * 0.28];
+const PY = [HUD_H + 10, GROUND_Y - 70];
+
+function tryShoot() {
+  if (P.shootT > 0) return;
+  P.shootT = P.shootCooldown;
+  P.shooting = true;
+  P.shootDisplay = 250;
+  bullets.push({ x: P.x + P.w + 4, y: P.y + P.h * 0.3, vx: 660, trail: [] });
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function filled(color, stroke, lw, fn) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = stroke || '#000';
+  ctx.lineWidth = lw || 2;
+  fn();
+  ctx.fill();
+  if (stroke !== null) ctx.stroke();
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+function initClouds() {
+  clouds = [];
+  for (let i = 0; i < 6; i++) {
+    clouds.push({ x: Math.random() * W, y: 60 + Math.random() * 80, w: 60 + Math.random() * 90, spd: 20 + Math.random() * 25 });
+  }
+}
+
+function startGame() {
+  state = 'playing';
+  score = 0; lives = 3; level = 0; ducksShot = 0;
+  ducks = []; bullets = []; particles = [];
+  P.x = 80; P.y = 340; P.shootT = 0; P.shooting = false;
+  spawnTimer = LEVELS[0].interval;
+  initClouds();
+}
+
+// ── Spawn duck ───────────────────────────────────────────────────────────────
+function spawnDuck(pattern) {
+  const cfg = LEVELS[level];
+  const pat = pattern || (cfg.pattern === 'mixed'
+    ? ['straight','wave','swoop','zigzag'][Math.floor(Math.random() * 4)]
+    : cfg.pattern);
+  const startY = HUD_H + 30 + Math.random() * (GROUND_Y - HUD_H - 120);
+  ducks.push({
+    x: W + 40, y: startY, startY,
+    w: 52, h: 42,
+    spd: cfg.speed * 60,
+    pat,
+    frame: 0, frameT: 0, t: 0,
+    hit: false, hitT: 0,
+    dead: false, deadT: 0, deadAngle: 0,
+  });
+}
+
+// ── Particles ─────────────────────────────────────────────────────────────────
+function burst(x, y) {
+  const cols = ['#FFD700','#FF6600','#FF4444','#FFF','#FF9900'];
+  for (let i = 0; i < 14; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const spd = 60 + Math.random() * 260;
+    particles.push({
+      x: x + 26, y: y + 21,
+      vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd - 80,
+      r: 3 + Math.random() * 5,
+      col: cols[Math.floor(Math.random() * cols.length)],
+      life: 500 + Math.random() * 300,
+      maxLife: 800,
+    });
+  }
+}
+
+// ── Update ───────────────────────────────────────────────────────────────────
+let bgOff = 0, hillOff = 0, gndOff = 0;
+
+function update(dt) {
+  const spd = P.spd * dt;
+  if (keys['ArrowUp'])    P.y = Math.max(PY[0], P.y - spd);
+  if (keys['ArrowDown'])  P.y = Math.min(PY[1], P.y + spd);
+  if (keys['ArrowLeft'])  P.x = Math.max(PX[0], P.x - spd * 0.7);
+  if (keys['ArrowRight']) P.x = Math.min(PX[1], P.x + spd * 0.7);
+
+  const moving = keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
+  if (moving) {
+    P.frameT += dt * 1000;
+    if (P.frameT > 140) { P.frameT = 0; P.frame = (P.frame + 1) % 3; }
+  } else { P.frame = 1; }
+
+  if (P.shootT > 0) P.shootT -= dt * 1000;
+  if (P.shootDisplay > 0) { P.shootDisplay -= dt * 1000; if (P.shootDisplay <= 0) P.shooting = false; }
+
+  // Bullets
+  bullets = bullets.filter(b => {
+    b.trail.push({ x: b.x, y: b.y });
+    if (b.trail.length > 9) b.trail.shift();
+    b.x += b.vx * dt;
+    return b.x < W + 20;
+  });
+
+  // Spawn timer
+  spawnTimer -= dt * 1000;
+  if (spawnTimer <= 0) {
+    const cfg = LEVELS[level];
+    spawnDuck();
+    if (level >= 4 && Math.random() < 0.35) spawnDuck();
+    spawnTimer = cfg.interval;
+  }
+
+  // Update ducks
+  let advanceLevel = false;
+  ducks.forEach(d => {
+    d.t += dt;
+
+    if (d.dead) {
+      d.deadT += dt * 1000;
+      d.deadAngle += 8 * dt;
+      return;
+    }
+    if (d.hit) {
+      d.hitT -= dt * 1000;
+      if (d.hitT <= 0) {
+        d.dead = true;
+        ducksShot++;
+        score += 100;
+        burst(d.x, d.y);
+        if (ducksShot >= LEVELS[level].goal && level < LEVELS.length - 1) {
+          advanceLevel = true;
+        }
+      }
+      return;
+    }
+
+    d.x -= d.spd * dt;
+
+    switch (d.pat) {
+      case 'wave':    d.y = d.startY + Math.sin(d.t * 2.2) * 65; break;
+      case 'swoop':   d.y = d.startY + Math.sin(d.t * 1.3) * 90 + d.t * 25;
+                      d.y = Math.min(d.y, GROUND_Y - 55); break;
+      case 'zigzag':  d.y = d.startY + Math.sin(d.t * 5) * 38; break;
+    }
+
+    d.frameT += dt * 1000;
+    if (d.frameT > 180) { d.frameT = 0; d.frame = (d.frame + 1) % 2; }
+
+    // Off left edge
+    if (d.x + d.w < 0) {
+      d.dead = true; d.deadT = 9999;
+      lives--;
+      if (lives <= 0) { lives = 0; state = 'gameover'; }
+    }
+  });
+
+  ducks = ducks.filter(d => !(d.dead && d.deadT > 550));
+
+  if (advanceLevel) {
+    score += (level + 1) * 300;
+    level++;
+    ducksShot = 0;
+    ducks = []; bullets = [];
+    spawnTimer = LEVELS[level].interval;
+    state = 'levelup';
+    levelUpTimer = 2600;
+  }
+
+  // Bullet↔duck collision
+  for (let bi = bullets.length - 1; bi >= 0; bi--) {
+    const b = bullets[bi];
+    for (const d of ducks) {
+      if (d.hit || d.dead) continue;
+      if (b.x > d.x && b.x < d.x + d.w && b.y > d.y && b.y < d.y + d.h) {
+        d.hit = true; d.hitT = 280;
+        bullets.splice(bi, 1);
+        break;
+      }
+    }
+  }
+
+  // Particles
+  particles.forEach(p => {
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vy += 320 * dt;
+    p.life -= dt * 1000;
+  });
+  particles = particles.filter(p => p.life > 0);
+
+  // Clouds
+  clouds.forEach(c => {
+    c.x -= c.spd * dt;
+    if (c.x + c.w < 0) { c.x = W + 10; c.y = 60 + Math.random() * 80; }
+  });
+
+  bgOff   = (bgOff   + 25 * dt) % (W + 1);
+  hillOff = (hillOff + 70 * dt) % (W + 1);
+  gndOff  = (gndOff  + 160 * dt) % 48;
+}
+
+// ── Draw ─────────────────────────────────────────────────────────────────────
+function draw() {
+  // Sky
+  const sky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+  sky.addColorStop(0, '#4488EE');
+  sky.addColorStop(1, '#88CCFF');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, GROUND_Y);
+
+  // Clouds
+  clouds.forEach(c => drawCloud(c.x, c.y, c.w));
+
+  // Hills
+  drawHills();
+
+  // Ground
+  ctx.fillStyle = '#7B3B0D';
+  ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+  ctx.fillStyle = '#33AA22';
+  ctx.fillRect(0, GROUND_Y, W, 14);
+  ctx.strokeStyle = '#227711';
+  ctx.lineWidth = 2;
+  for (let x = -gndOff; x < W + 50; x += 48) {
+    ctx.beginPath(); ctx.moveTo(x, GROUND_Y + 7); ctx.lineTo(x + 24, GROUND_Y + 7); ctx.stroke();
+  }
+
+  // Bullets
+  bullets.forEach(drawBullet);
+
+  // Ducks
+  ducks.forEach(drawDuck);
+
+  // Player
+  drawPlayer();
+
+  // Particles
+  particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // HUD
+  drawHUD();
+
+  // Overlays
+  if (state === 'menu')     drawMenu();
+  if (state === 'levelup')  drawLevelUp();
+  if (state === 'gameover') drawGameOver();
+}
+
+// ── Background ───────────────────────────────────────────────────────────────
+function drawCloud(x, y, w) {
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.beginPath();
+  ctx.ellipse(x + w * .50, y + 16, w * .50, 16, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + w * .30, y + 22, w * .33, 14, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + w * .72, y + 22, w * .28, 13, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawHills() {
+  [[hillOff * .45, '#4DB54D', 55, .009], [hillOff, '#3A9E3A', 36, .013]].forEach(([off, col, amp, freq]) => {
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    for (let x = 0; x <= W; x += 8) {
+      ctx.lineTo(x, GROUND_Y - amp + Math.sin((x + off) * freq) * amp);
+    }
+    ctx.lineTo(W, GROUND_Y); ctx.closePath(); ctx.fill();
+  });
+}
+
+// ── Bullet ───────────────────────────────────────────────────────────────────
+function drawBullet(b) {
+  b.trail.forEach((t, i) => {
+    ctx.globalAlpha = (i / b.trail.length) * 0.45;
+    ctx.fillStyle = '#FFE066';
+    ctx.beginPath(); ctx.arc(t.x, t.y, 4 * i / b.trail.length + 1, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#FFD700'; ctx.strokeStyle = '#FF8800'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+}
+
+// ── Duck ─────────────────────────────────────────────────────────────────────
+function drawDuck(d) {
+  ctx.save();
+  const cx = d.x + d.w / 2, cy = d.y + d.h / 2;
+
+  if (d.dead) {
+    if (d.deadT > 500) { ctx.restore(); return; }
+    ctx.globalAlpha = Math.max(0, 1 - d.deadT / 500);
+    ctx.translate(cx, cy);
+    ctx.rotate(d.deadAngle);
+    const sc = Math.max(0, 1 - d.deadT / 550);
+    ctx.scale(sc, sc);
+    ctx.translate(-d.w / 2, -d.h / 2);
+  } else if (d.hit) {
+    ctx.translate(d.x, d.y);
+    ctx.globalAlpha = d.hitT > 140 ? 1 : 0.4;
+    if (d.hitT > 140) { ctx.filter = 'brightness(4) saturate(0)'; }
+  } else {
+    ctx.translate(d.x, d.y);
+  }
+
+  const w = d.w, h = d.h;
+
+  // Body
+  filled('#FFD700', '#000', 2, () => { ctx.ellipse(w*.50, h*.58, w*.40, h*.38, 0, 0, Math.PI*2); });
+  // Head
+  filled('#FFD700', '#000', 2, () => { ctx.ellipse(w*.76, h*.26, w*.22, h*.22, 0, 0, Math.PI*2); });
+  // Eye
+  filled('#111', null, 0, () => { ctx.arc(w*.83, h*.19, 3.2, 0, Math.PI*2); });
+  filled('#FFF', null, 0, () => { ctx.arc(w*.85, h*.17, 1.3, 0, Math.PI*2); });
+  // Beak
+  ctx.fillStyle = '#FF6600'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(w*.93, h*.26); ctx.lineTo(w*1.08, h*.29); ctx.lineTo(w*.93, h*.35);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+
+  // Wing
+  ctx.fillStyle = '#FFA000'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (d.frame === 0) {
+    ctx.moveTo(w*.45, h*.52); ctx.quadraticCurveTo(w*.22, h*.14, w*.58, h*.36); ctx.closePath();
+  } else {
+    ctx.moveTo(w*.45, h*.60); ctx.quadraticCurveTo(w*.18, h*.88, w*.58, h*.72); ctx.closePath();
+  }
+  ctx.fill(); ctx.stroke();
+
+  // Feet
+  ctx.strokeStyle = '#FF6600'; ctx.lineWidth = 2;
+  [[w*.38, h*.90, w*.20, w*.30, w*.44], [w*.62, h*.90, w*.44, w*.54, w*.68]].forEach(([sx, sy, a, b2, c]) => {
+    ctx.beginPath();
+    ctx.moveTo(sx, sy); ctx.lineTo(sx - 3, sy + h*.16);
+    ctx.moveTo(sx - 3, sy + h*.16); ctx.lineTo(a, sy + h*.20);
+    ctx.moveTo(sx - 3, sy + h*.16); ctx.lineTo(b2, sy + h*.21);
+    ctx.moveTo(sx - 3, sy + h*.16); ctx.lineTo(c, sy + h*.21);
+    ctx.stroke();
+  });
+
+  ctx.restore();
+}
+
+// ── Player ───────────────────────────────────────────────────────────────────
+function drawPlayer() {
+  ctx.save();
+  ctx.translate(P.x, P.y);
+  const w = P.w, h = P.h, f = P.frame, sh = P.shooting;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath(); ctx.ellipse(w*.50, h*1.04, w*.45, 7, 0, 0, Math.PI*2); ctx.fill();
+
+  // Legs
+  const lo = f === 0 ? -6 : f === 2 ? 6 : 0;
+  ctx.fillStyle = '#003399'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+  // Left leg
+  rr(w*.16 - lo*.4, h*.66, w*.24, h*.34, 4); ctx.fill(); ctx.stroke();
+  // Right leg
+  rr(w*.60 + lo*.4, h*.66, w*.24, h*.34, 4); ctx.fill(); ctx.stroke();
+  // Shoes
+  ctx.fillStyle = '#5C3010';
+  filled('#5C3010', '#000', 2, () => { ctx.ellipse(w*.28 - lo*.3, h*1.01, w*.22, 7, 0, 0, Math.PI*2); });
+  filled('#5C3010', '#000', 2, () => { ctx.ellipse(w*.72 + lo*.3, h*1.01, w*.22, 7, 0, 0, Math.PI*2); });
+
+  // Body overalls
+  ctx.fillStyle = '#003399'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+  rr(w*.10, h*.40, w*.80, h*.30, 7); ctx.fill(); ctx.stroke();
+  // Overalls straps
+  ctx.fillStyle = '#0044CC';
+  rr(w*.22, h*.36, w*.16, h*.14, 3); ctx.fill(); ctx.stroke();
+  rr(w*.62, h*.36, w*.16, h*.14, 3); ctx.fill(); ctx.stroke();
+
+  // Shirt (red)
+  ctx.fillStyle = '#CC1111'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+  rr(w*.20, h*.33, w*.60, h*.12, 4); ctx.fill(); ctx.stroke();
+
+  // Left arm
+  ctx.fillStyle = '#CC1111';
+  const leftArmY = sh ? h*.35 : h*.40;
+  rr(-w*.10, leftArmY, w*.24, h*.26, 5); ctx.fill(); ctx.stroke();
+  // Left hand
+  filled('#FDBCB4', '#000', 1.5, () => { ctx.arc(-w*.02, leftArmY + h*.28, 8, 0, Math.PI*2); });
+
+  // Right arm / shooting arm
+  const rightArmY = sh ? h*.28 : h*.40;
+  rr(w*.86, rightArmY, w*.22, h*.26, 5); ctx.fill(); ctx.stroke();
+  filled('#FDBCB4', '#000', 1.5, () => { ctx.arc(w*1.00, rightArmY + h*.28, 8, 0, Math.PI*2); });
+
+  // Gun
+  ctx.fillStyle = '#444'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+  if (sh) {
+    rr(w*.88, h*.30, w*.60, h*.09, 3); ctx.fill(); ctx.stroke();
+    // Muzzle flash
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath(); ctx.arc(w*1.50, h*.34, 8, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#FFF';
+    ctx.beginPath(); ctx.arc(w*1.50, h*.34, 4, 0, Math.PI*2); ctx.fill();
+  } else {
+    rr(w*.88, h*.43, w*.48, h*.09, 3); ctx.fill(); ctx.stroke();
+  }
+
+  // Head
+  filled('#FDBCB4', '#000', 2, () => { ctx.ellipse(w*.50, h*.22, w*.30, h*.21, 0, 0, Math.PI*2); });
+
+  // Cap
+  ctx.fillStyle = '#CC1111'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(w*.50, h*.11, w*.36, h*.12, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  // Brim
+  ctx.beginPath(); ctx.ellipse(w*.60, h*.18, w*.32, h*.07, 0.15, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  // Cap letter M
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('M', w*.52, h*.16);
+
+  // Eyes
+  filled('#111', null, 0, () => { ctx.arc(w*.36, h*.21, 3.2, 0, Math.PI*2); });
+  filled('#111', null, 0, () => { ctx.arc(w*.63, h*.21, 3.2, 0, Math.PI*2); });
+  filled('#FFF', null, 0, () => { ctx.arc(w*.38, h*.19, 1.3, 0, Math.PI*2); });
+  filled('#FFF', null, 0, () => { ctx.arc(w*.65, h*.19, 1.3, 0, Math.PI*2); });
+
+  // Nose
+  filled('#FFAA88', '#000', 1, () => { ctx.ellipse(w*.50, h*.27, 5, 3.5, 0, 0, Math.PI*2); });
+
+  // Mustache
+  ctx.fillStyle = '#6B3A2A';
+  ctx.beginPath(); ctx.ellipse(w*.42, h*.31, 9, 4, -0.3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w*.58, h*.31, 9, 4,  0.3, 0, Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+// ── HUD ──────────────────────────────────────────────────────────────────────
+function drawHUD() {
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.fillRect(0, 0, W, HUD_H);
+
+  const cfg = LEVELS[level];
+
+  // Score
+  ctx.fillStyle = '#FFD700';
+  ctx.font = '13px "Press Start 2P"';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${score}`, 14, 30);
+  ctx.fillStyle = '#AAA';
+  ctx.font = '8px "Press Start 2P"';
+  ctx.fillText('SCORE', 14, 44);
+
+  // Level + bar
+  ctx.fillStyle = '#FFF';
+  ctx.font = '11px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.fillText(`LEVEL ${level + 1}`, W / 2, 18);
+  const bw = 160, bx = W / 2 - bw / 2, by = 24;
+  ctx.fillStyle = '#333'; ctx.fillRect(bx, by, bw, 13);
+  const prog = Math.min(ducksShot / cfg.goal, 1);
+  const barColor = prog > 0.8 ? '#FF4444' : prog > 0.5 ? '#FFAA00' : '#44DD44';
+  ctx.fillStyle = barColor; ctx.fillRect(bx, by, bw * prog, 13);
+  ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 1.5; ctx.strokeRect(bx, by, bw, 13);
+  ctx.fillStyle = '#FFF'; ctx.font = '7px "Press Start 2P"'; ctx.textAlign = 'center';
+  ctx.fillText(`${ducksShot} / ${cfg.goal} DUCKS`, W / 2, by + 9);
+
+  // Lives
+  ctx.textAlign = 'right';
+  ctx.font = '11px "Press Start 2P"';
+  ctx.fillStyle = '#FF4444';
+  ctx.fillText('LIVES', W - 14 - lives * 22, 18);
+  for (let i = 0; i < lives; i++) {
+    drawHeart(W - 18 - i * 22, 28, 9);
+  }
+}
+
+function drawHeart(cx, cy, r) {
+  ctx.fillStyle = '#FF3344';
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + r * .3);
+  ctx.bezierCurveTo(cx, cy - r * .5, cx - r * 1.1, cy - r * .5, cx - r, cy + r * .1);
+  ctx.bezierCurveTo(cx - r * 1.1, cy + r * .8, cx, cy + r * 1.4, cx, cy + r * 1.4);
+  ctx.bezierCurveTo(cx, cy + r * 1.4, cx + r * 1.1, cy + r * .8, cx + r, cy + r * .1);
+  ctx.bezierCurveTo(cx + r * 1.1, cy - r * .5, cx, cy - r * .5, cx, cy + r * .3);
+  ctx.fill(); ctx.stroke();
+}
+
+// ── Overlay screens ───────────────────────────────────────────────────────────
+function overlayBox(x, y, w, h, bg, border) {
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = bg; ctx.strokeStyle = border; ctx.lineWidth = 5;
+  rr(x, y, w, h, 16); ctx.fill(); ctx.stroke();
+}
+
+function drawMenu() {
+  overlayBox(W/2-260, H/2-150, 520, 300, '#1A1A4E', '#FFD700');
+
+  ctx.fillStyle = '#FFD700';
+  ctx.font = '26px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.fillText('DUCK SHOOTER', W/2, H/2 - 80);
+
+  ctx.fillStyle = '#FFF';
+  ctx.font = '9px "Press Start 2P"';
+  ctx.fillText('ARROW KEYS  =  MOVE', W/2, H/2 - 30);
+  ctx.fillText('ENTER  =  SHOOT', W/2, H/2 - 8);
+  ctx.fillText('SHOOT THE DUCKS BEFORE', W/2, H/2 + 20);
+  ctx.fillText('THEY ESCAPE THE SCREEN!', W/2, H/2 + 40);
+
+  if (Math.floor(Date.now() / 520) % 2 === 0) {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = '10px "Press Start 2P"';
+    ctx.fillText('PRESS ENTER TO START', W/2, H/2 + 100);
+  }
+}
+
+function drawLevelUp() {
+  overlayBox(W/2-220, H/2-100, 440, 200, '#002244', '#FFD700');
+
+  ctx.fillStyle = '#FFD700';
+  ctx.font = '18px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.fillText(`LEVEL ${level} CLEAR!`, W/2, H/2 - 32);
+
+  ctx.fillStyle = '#44FF88';
+  ctx.font = '11px "Press Start 2P"';
+  ctx.fillText(`+${level * 300} BONUS PTS`, W/2, H/2);
+
+  ctx.fillStyle = '#AAA';
+  ctx.font = '9px "Press Start 2P"';
+  ctx.fillText(`LEVEL ${level + 1} INCOMING...`, W/2, H/2 + 35);
+}
+
+function drawGameOver() {
+  overlayBox(W/2-230, H/2-130, 460, 260, '#440000', '#FF4444');
+
+  ctx.fillStyle = '#FF4444';
+  ctx.font = '22px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.fillText('GAME OVER', W/2, H/2 - 60);
+
+  ctx.fillStyle = '#FFD700';
+  ctx.font = '11px "Press Start 2P"';
+  ctx.fillText(`SCORE: ${score}`, W/2, H/2 - 15);
+  ctx.fillStyle = '#FFF';
+  ctx.fillText(`LEVEL REACHED: ${level + 1}`, W/2, H/2 + 15);
+
+  if (Math.floor(Date.now() / 520) % 2 === 0) {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = '9px "Press Start 2P"';
+    ctx.fillText('PRESS ENTER TO PLAY AGAIN', W/2, H/2 + 70);
+  }
+}
+
+// ── Game loop ─────────────────────────────────────────────────────────────────
+function loop(ts) {
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  if (state === 'playing') update(dt);
+  else if (state === 'levelup') {
+    update(dt);
+    levelUpTimer -= dt * 1000;
+    if (levelUpTimer <= 0) { state = 'playing'; spawnTimer = LEVELS[level].interval; }
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+state = 'menu'; score = 0; lives = 3; level = 0; ducksShot = 0;
+ducks = []; bullets = []; particles = [];
+initClouds();
+requestAnimationFrame(ts => { lastTime = ts; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
