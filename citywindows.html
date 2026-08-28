@@ -66,20 +66,19 @@
   }
   .city-card{
     position:relative; width:clamp(150px,26vw,230px); aspect-ratio:3/4;
-    border-radius:14px; border:1px solid rgba(0,0,0,.08);
+    border-radius:14px; border:none;
     background:#0c0f16; color:#fff; cursor:pointer; overflow:hidden;
     padding:0; text-align:left;
     transform: translateY(0) scale(1);
-    transition: transform .35s cubic-bezier(.2,.8,.3,1), box-shadow .35s ease, border-color .35s ease;
-    box-shadow: 0 8px 22px rgba(20,20,30,.14);
+    transition: transform .35s cubic-bezier(.2,.8,.3,1), box-shadow .35s ease;
+    box-shadow: none;
   }
   .city-card:hover, .city-card:focus-visible{
     transform: translateY(-8px) scale(1.03);
-    border-color: rgba(0,0,0,.18);
-    box-shadow: 0 18px 36px rgba(20,20,30,.22);
+    box-shadow: 0 14px 28px rgba(20,20,30,.18);
     outline: none;
   }
-  .city-card:focus-visible{ box-shadow: 0 18px 36px rgba(20,20,30,.22), 0 0 0 3px var(--ui-accent); }
+  .city-card:focus-visible{ box-shadow: 0 14px 28px rgba(20,20,30,.18), 0 0 0 3px var(--ui-accent); }
   @media (min-width: 860px){
     .city-strip{
       flex-wrap:nowrap;
@@ -436,7 +435,7 @@ const CITIES = [
       nightTop:[12,11,20], nightMid:[30,23,28], nightBottom:[44,31,25],
       sun:[255,210,140], moon:[210,206,214]
     },
-    description:"Dense street bustle, rickshaw and motorbike horns weaving through traffic, crows calling overhead, a vendor's cry, and a sea breeze drifting in from Clifton.",
+    description:"Dense street bustle, rickshaw and motorbike horns weaving through traffic, and a sea breeze drifting in from Clifton.",
     audio:{
       continuous:[
         {filterType:'bandpass', freq:220, q:1.3, gain:0.26},
@@ -444,8 +443,6 @@ const CITIES = [
       ],
       events:[
         {fn:'rickshawHorn', interval:[2000,5000], gain:0.20},
-        {fn:'crow', interval:[4000,10000], gain:0.16},
-        {fn:'vendorCall', interval:[9000,20000], gain:0.10},
         {fn:'motorbikePass', interval:[6000,14000], gain:0.16}
       ]
     }
@@ -492,7 +489,7 @@ function buildSydneyState(rng, w, h){
     });
   }
   return {
-    waterTop, boats,
+    waterTop, boats, sharkFinAlpha: 0,
     clouds: makeClouds(rng, w, h, 4, 0.05, 0.26),
     birds: [], nextBirdAt: performance.now()+1500+rng()*4000
   };
@@ -641,6 +638,19 @@ function updateAndDrawBoats(ctx, boats, w, dayFactor, dt, paused, now){
     }
   });
 }
+function drawSharkFin(ctx, x, y, time, alpha){
+  const wobble = Math.sin(time*0.006)*4;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x+wobble, y);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.ellipse(0,7,16,4,0,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle = 'rgba(20,24,30,0.9)';
+  ctx.beginPath();
+  ctx.moveTo(-10,6); ctx.quadraticCurveTo(-4,-18,4,-2); ctx.quadraticCurveTo(2,4,10,6);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
 function renderSydney(ctx, w, h, state, now, dt, opts, city){
   drawSunMoon(ctx, w, h, city.palette, state.dayFactor, (state.time*0.004)%1);
   drawClouds(ctx, state.clouds, w, h, state.parallaxX, state.dayFactor, dt, opts.reduced);
@@ -651,13 +661,18 @@ function renderSydney(ctx, w, h, state, now, dt, opts, city){
   drawHarbourWater(ctx, w, h, state.waterTop, state.dayFactor, state.time);
   updateAndDrawBoats(ctx, state.boats, w, state.dayFactor, dt, opts.reduced, now);
   drawBirds(state, ctx, w, h, now, state.dayFactor, opts.reduced);
+  const overWater = hoverX>=0 && hoverX<=w && hoverY>state.waterTop && hoverY<=h;
+  state.sharkFinAlpha = lerp(state.sharkFinAlpha, overWater?1:0, opts.reduced?1:Math.min(1,dt*4));
+  if(state.sharkFinAlpha>0.02){
+    drawSharkFin(ctx, hoverX, hoverY, now, state.sharkFinAlpha);
+  }
 }
 
 /* ---------------- Dubai: Sheikh Zayed Road, glass towers, traffic ---------------- */
 const DUBAI_TOP_TYPES = ['flat','point','step','dome','antenna','twist'];
 function makeDubaiTowers(rng, side){
   const towers = [];
-  const count = 11;
+  const count = 16;
   for(let i=0;i<count;i++){
     towers.push({
       depth: i/(count-1), side,
@@ -910,10 +925,17 @@ function drawCherryBlossoms(ctx, w, h, branches, time, reduced){
     ctx.restore();
   });
 }
-function updateAndDrawPetals(state, ctx, w, h, dt, reduced){
+function updateAndDrawPetals(state, ctx, w, h, dt, reduced, hoverX, hoverY){
   if(!reduced && performance.now()>state.nextPetalAt && state.petals.length<14){
     state.petals.push({ x:Math.random()*w, y:-10, vy:14+Math.random()*10, vx:(Math.random()-0.5)*10, phase:Math.random()*Math.PI*2 });
     state.nextPetalAt = performance.now()+900+Math.random()*1600;
+  }
+  const nearBlossoms = !reduced && hoverX>=0 && hoverX<=w && hoverY>=0 && hoverY<h*0.4;
+  if(nearBlossoms && Math.random()<0.35 && state.petals.length<32){
+    state.petals.push({
+      x: hoverX+(Math.random()-0.5)*30, y: hoverY+(Math.random()-0.5)*20,
+      vy: 16+Math.random()*12, vx:(Math.random()-0.5)*14, phase:Math.random()*Math.PI*2
+    });
   }
   ctx.fillStyle = 'rgba(255,200,215,0.85)';
   for(let i=state.petals.length-1;i>=0;i--){
@@ -931,7 +953,7 @@ function renderDC(ctx, w, h, state, now, dt, opts, city){
   drawTidalBasin(ctx, w, h, state.waterTop, state.dayFactor, state.time);
   drawBirds(state, ctx, w, h, now, state.dayFactor, opts.reduced);
   drawCherryBlossoms(ctx, w, h, state.branches, state.time, opts.reduced);
-  updateAndDrawPetals(state, ctx, w, h, dt, opts.reduced);
+  updateAndDrawPetals(state, ctx, w, h, dt, opts.reduced, hoverX, hoverY);
 }
 
 /* ---------------- Philadelphia: rowhomes, trees, fairy lights ---------------- */
@@ -977,7 +999,8 @@ function buildPhillyState(rng, w, h){
     clouds: makeClouds(rng, w, h, 3, 0.04, 0.16)
   };
 }
-function drawRowhomes(ctx, homes, groundY, offsetX, dayFactor){
+function drawRowhomes(ctx, homes, groundY, offsetX, dayFactor, hoverX, hoverY){
+  const hoverRadius = 70;
   homes.forEach(hm=>{
     const x = hm.x+offsetX;
     ctx.fillStyle = dayFactor>0.35 ? hm.brick[0] : hm.brick[1];
@@ -993,9 +1016,23 @@ function drawRowhomes(ctx, homes, groundY, offsetX, dayFactor){
     const nightness = 1-dayFactor;
     hm.windows.forEach(win=>{
       const wx = x+win.cx*hm.width, wy = groundY-hm.height+win.cy*hm.height;
-      const lit = win.lit && nightness>0.25;
-      ctx.fillStyle = lit ? `rgba(255,205,140,${0.85*nightness})` : 'rgba(20,18,20,0.55)';
+      const naturalAlpha = (win.lit && nightness>0.25) ? 0.85*nightness : 0;
+      let hoverAlpha = 0;
+      if(hoverX!==undefined){
+        const dx = wx-hoverX, dy = wy-hoverY;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if(dist<hoverRadius) hoverAlpha = (1-dist/hoverRadius)*0.95;
+      }
+      const alpha = Math.max(naturalAlpha, hoverAlpha);
+      ctx.fillStyle = alpha>0.03 ? `rgba(255,205,140,${alpha.toFixed(3)})` : 'rgba(20,18,20,0.55)';
       ctx.fillRect(wx-5,wy-7,10,14);
+      if(hoverAlpha>0.15){
+        const glow = ctx.createRadialGradient(wx,wy,0,wx,wy,18);
+        glow.addColorStop(0, `rgba(255,214,150,${hoverAlpha*0.35})`);
+        glow.addColorStop(1, 'rgba(255,214,150,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(wx,wy,18,0,Math.PI*2); ctx.fill();
+      }
       ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.strokeRect(wx-5,wy-7,10,14);
     });
   });
@@ -1070,7 +1107,7 @@ function updateAndDrawLeaves(state, ctx, w, h, dt, reduced){
 function renderPhilly(ctx, w, h, state, now, dt, opts, city){
   drawSunMoon(ctx, w, h, city.palette, state.dayFactor, (state.time*0.004)%1);
   drawClouds(ctx, state.clouds, w, h, state.parallaxX, state.dayFactor, dt, opts.reduced);
-  drawRowhomes(ctx, state.rowhomes, state.groundY, state.parallaxX*10, state.dayFactor);
+  drawRowhomes(ctx, state.rowhomes, state.groundY, state.parallaxX*10, state.dayFactor, hoverX, hoverY);
   drawTreeCanopy(ctx, w, h, state.groundY, state.parallaxX, state.dayFactor, city.seed);
   drawFairyLights(ctx, w, h, state.lights, state.parallaxX, now, state.dayFactor);
   updateAndDrawLeaves(state, ctx, w, h, dt, opts.reduced);
@@ -1079,7 +1116,7 @@ function renderPhilly(ctx, w, h, state, now, dt, opts, city){
 /* ---------------- Karachi: street canyon, moving rickshaws ---------------- */
 function makeKarachiBuildings(rng, side){
   const list = [];
-  const count = 9;
+  const count = 13;
   for(let i=0;i<count;i++){
     list.push({
       depth: i/(count-1), side,
@@ -1102,11 +1139,20 @@ function buildKarachiState(rng, w, h){
   }
   const wires = [];
   for(let i=0;i<3;i++) wires.push({ y0: horizonY-10-i*14, sag: 12+rng()*10 });
+  const kites = [];
+  for(let i=0;i<6;i++){
+    kites.push({
+      x: rng()*w, y: h*(0.08+rng()*0.32),
+      driftSpeed: (6+rng()*10)*(rng()<0.5?1:-1),
+      bobPhase: rng()*Math.PI*2, bobSpeed: 0.5+rng()*0.4,
+      size: 13+rng()*9, hue: rng(), tailPhase: rng()*Math.PI*2
+    });
+  }
   return {
     horizonY,
     buildingsLeft: makeKarachiBuildings(rng,'left'),
     buildingsRight: makeKarachiBuildings(rng,'right'),
-    rickshaws, wires,
+    rickshaws, wires, kites,
     clouds: makeClouds(rng, w, h, 3, 0.03, 0.14),
     birds: [], nextBirdAt: performance.now()+2500+rng()*4000
   };
@@ -1178,6 +1224,56 @@ function drawWires(ctx, w, wires, offsetX){
     ctx.stroke();
   });
 }
+const KITE_COLORS = [['#e74c3c','#f1c40f'],['#3498db','#ffffff'],['#2ecc71','#e67e22'],['#9b59b6','#f1c40f'],['#e67e22','#16a085']];
+function updateAndDrawKites(ctx, kites, w, h, dt, paused, now, hoverX, hoverY){
+  const hovering = hoverX>=0 && hoverX<=w && hoverY>=0 && hoverY<h*0.45;
+  kites.forEach(k=>{
+    if(!paused){
+      if(hovering){
+        const dx = hoverX-k.x, dy = hoverY-k.y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if(dist<260){
+          k.x += dx*1.6*dt;
+          k.y += dy*1.1*dt;
+          k.y = clamp(k.y, h*0.04, h*0.42);
+        }
+      }
+      k.x += k.driftSpeed*dt;
+    }
+    if(k.x<-30) k.x = w+30;
+    if(k.x>w+30) k.x = -30;
+    const bobY = k.y + Math.sin(now*0.0015*k.bobSpeed+k.bobPhase)*10;
+    const sway = Math.sin(now*0.001*k.bobSpeed*1.3+k.bobPhase)*0.3;
+    const [c1,c2] = KITE_COLORS[Math.floor(k.hue*KITE_COLORS.length)];
+    ctx.save();
+    ctx.translate(k.x, bobY);
+    ctx.rotate(sway);
+    ctx.fillStyle = c1;
+    ctx.beginPath();
+    ctx.moveTo(0,-k.size); ctx.lineTo(k.size*0.7,0); ctx.lineTo(0,k.size*0.15); ctx.lineTo(-k.size*0.7,0);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = c2;
+    ctx.beginPath();
+    ctx.moveTo(0,k.size*0.15); ctx.lineTo(k.size*0.5,k.size*0.32); ctx.lineTo(0,k.size*0.9); ctx.lineTo(-k.size*0.5,k.size*0.32);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(0,-k.size); ctx.lineTo(0,k.size*0.9);
+    ctx.moveTo(-k.size*0.7,0); ctx.lineTo(k.size*0.7,0);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    let ty = k.size*0.9;
+    ctx.moveTo(0,ty);
+    for(let t=0;t<4;t++){
+      const tx = Math.sin(now*0.002+k.tailPhase+t)*6;
+      ty += 8;
+      ctx.lineTo(tx,ty);
+    }
+    ctx.stroke();
+    ctx.restore();
+  });
+}
 function updateAndDrawRickshaws(ctx, rickshaws, w, h, horizonY, offsetX, dayFactor, dt, paused){
   rickshaws.sort((a,b)=>b.t-a.t);
   rickshaws.forEach(r=>{
@@ -1224,6 +1320,7 @@ function renderKarachi(ctx, w, h, state, now, dt, opts, city){
   const buildings = [...state.buildingsLeft, ...state.buildingsRight].sort((a,b)=>b.depth-a.depth);
   buildings.forEach(b=> drawKarachiBuilding(ctx, b, w, h, state.horizonY, state.dayFactor, state.parallaxX));
   drawWires(ctx, w, state.wires, state.parallaxX);
+  updateAndDrawKites(ctx, state.kites, w, h, dt, opts.reduced, now, hoverX, hoverY);
   updateAndDrawRickshaws(ctx, state.rickshaws, w, h, state.horizonY, state.parallaxX, state.dayFactor, dt, opts.reduced);
   drawBirds(state, ctx, w, h, now, state.dayFactor, opts.reduced);
 }
@@ -1864,6 +1961,7 @@ let inExperience = false;
 
 let parallaxTargetX = 0, parallaxTargetY = 0;
 let smoothParallaxX = 0, smoothParallaxY = 0;
+let hoverX = -9999, hoverY = -9999;
 
 /* --- Landing cards --- */
 function renderTeaser(canvas, cityIndex){
@@ -2080,10 +2178,13 @@ setInterval(clockTick, 15000);
 
 /* --- pointer / touch / device orientation parallax --- */
 window.addEventListener('mousemove', (e)=>{
-  if(!inExperience || reducedMotion()) return;
+  if(!inExperience) return;
+  hoverX = e.clientX; hoverY = e.clientY;
+  if(reducedMotion()) return;
   parallaxTargetX = (e.clientX / window.innerWidth) * 2 - 1;
   parallaxTargetY = (e.clientY / window.innerHeight) * 2 - 1;
 });
+document.addEventListener('mouseleave', ()=>{ hoverX = -9999; hoverY = -9999; });
 
 let touchStartX = null, touchStartY = null;
 windowRig.addEventListener('touchstart', (e)=>{
