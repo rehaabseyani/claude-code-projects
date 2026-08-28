@@ -56,6 +56,10 @@
   .landing-header p{
     margin:0; color:#5a5a62; font-size:clamp(13px,1.6vw,16px); line-height:1.5;
   }
+  .landing-note{
+    margin-top:6px !important; color:#9a9aa2 !important; font-size:clamp(11px,1.2vw,13px) !important;
+    font-style:italic;
+  }
   .city-strip{
     display:flex; flex-wrap:wrap; justify-content:center; gap:clamp(14px,2vw,26px);
     max-width:1180px; width:100%;
@@ -84,27 +88,15 @@
     }
     .city-card{ width:auto; flex:1 1 0; max-width:340px; }
   }
-  .teaser{
-    position:absolute; inset:0; background-size:220% 220%; background-position:30% 40%;
-    transition: background-position .8s ease;
+  .teaser-canvas{
+    position:absolute; inset:0; width:100%; height:100%; display:block;
+    transition: transform .6s ease;
   }
-  .city-card:hover .teaser, .city-card:focus-visible .teaser{ background-position:70% 60%; }
-  .teaser.sydney{ background-image: linear-gradient(200deg,#12324a,#1f6f97 45%,#bfe3ee 100%); }
-  .teaser.dubai{ background-image: linear-gradient(200deg,#3a1f12,#c47a2e 45%,#ffe2ad 100%); }
-  .teaser.dc{ background-image: linear-gradient(200deg,#1a2233,#3a5170 45%,#dce7ef 100%); }
-  .teaser.philly{ background-image: linear-gradient(200deg,#251a2e,#5c3d63 45%,#f0c9d8 100%); }
-  .teaser.karachi{ background-image: linear-gradient(200deg,#241a12,#8a5a2e 45%,#ffd9a0 100%); }
-  .teaser::after{
-    content:""; position:absolute; left:0; right:0; bottom:0; height:46%;
-    background: rgba(3,4,8,.55);
-    transition: transform .5s ease;
+  .city-card:hover .teaser-canvas, .city-card:focus-visible .teaser-canvas{ transform: scale(1.06); }
+  .teaser-shade{
+    position:absolute; left:0; right:0; bottom:0; height:48%; pointer-events:none;
+    background: linear-gradient(to top, rgba(4,5,10,.7), rgba(4,5,10,0));
   }
-  .city-card:hover .teaser::after, .city-card:focus-visible .teaser::after{ transform: translateY(-4%); }
-  .teaser.sydney::after{ clip-path: polygon(0% 100%,0% 60%,8% 60%,8% 38%,14% 38%,14% 55%,22% 20%,26% 55%,34% 42%,40% 60%,40% 30%,46% 30%,46% 60%,58% 45%,64% 60%,64% 40%,70% 40%,70% 65%,80% 50%,86% 65%,100% 65%,100% 100%); }
-  .teaser.dubai::after{ clip-path: polygon(0% 100%,0% 70%,10% 70%,10% 55%,18% 55%,18% 65%,28% 65%,28% 8%,31% 4%,34% 8%,34% 65%,44% 65%,44% 45%,52% 45%,52% 65%,62% 65%,62% 30%,68% 30%,68% 65%,78% 65%,78% 50%,86% 50%,86% 65%,100% 65%,100% 100%); }
-  .teaser.dc::after{ clip-path: polygon(0% 100%,0% 72%,14% 72%,14% 60%,26% 60%,26% 46%,30% 34%,34% 46%,34% 60%,46% 60%,46% 72%,54% 72%,54% 18%,57% 18%,57% 72%,66% 72%,66% 62%,78% 62%,78% 72%,100% 72%,100% 100%); }
-  .teaser.philly::after{ clip-path: polygon(0% 100%,0% 68%,10% 60%,16% 68%,22% 55%,28% 68%,34% 68%,34% 26%,38% 20%,40% 14%,42% 20%,46% 26%,46% 68%,58% 68%,58% 56%,66% 56%,66% 68%,76% 60%,82% 68%,100% 68%,100% 100%); }
-  .teaser.karachi::after{ clip-path: polygon(0% 100%,0% 66%,8% 66%,8% 20%,10% 12%,12% 20%,12% 66%,22% 66%,22% 50%,32% 50%,32% 66%,44% 66%,44% 58%,50% 58%,50% 15%,52% 8%,54% 15%,54% 58%,60% 58%,60% 66%,72% 66%,72% 46%,80% 46%,80% 66%,90% 66%,90% 54%,100% 54%,100% 100%); }
   .card-content{
     position:absolute; left:0; right:0; bottom:0; padding:14px 16px 16px;
     display:flex; flex-direction:column; gap:2px;
@@ -262,6 +254,7 @@
   <div class="landing-header">
     <h1>City Windows</h1>
     <p>Here are my favorite places in the world. Get a hint of what they feel like.</p>
+    <p class="landing-note">Vibecoded in an hour — please dismiss any inaccuracies.</p>
   </div>
   <div class="city-strip" id="citySelector" role="list"></div>
 </main>
@@ -1873,6 +1866,19 @@ let parallaxTargetX = 0, parallaxTargetY = 0;
 let smoothParallaxX = 0, smoothParallaxY = 0;
 
 /* --- Landing cards --- */
+function renderTeaser(canvas, cityIndex){
+  const city = CITIES[cityIndex];
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cw = 420, ch = 560;
+  canvas.width = cw*dpr; canvas.height = ch*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const state = createSceneState(cityIndex, cw, ch);
+  state.dayFactor = 0.9;
+  state.dayFactorTarget = 0.9;
+  drawSky(ctx, cw, ch, city.palette, state.dayFactor);
+  SCENES[city.id].render(ctx, cw, ch, state, performance.now(), 0, {reduced:true, rain:false}, city);
+}
 function buildLandingCards(){
   CITIES.forEach((city, i)=>{
     const btn = document.createElement('button');
@@ -1882,15 +1888,21 @@ function buildLandingCards(){
     btn.tabIndex = i===0 ? 0 : -1;
     btn.dataset.index = i;
 
-    const teaser = document.createElement('span');
-    teaser.className = `teaser ${city.id === 'dc' ? 'dc' : (city.id==='philly'?'philly':city.id)}`;
-    teaser.setAttribute('aria-hidden','true');
+    const teaserCanvas = document.createElement('canvas');
+    teaserCanvas.className = 'teaser-canvas';
+    teaserCanvas.setAttribute('aria-hidden','true');
+    renderTeaser(teaserCanvas, i);
+
+    const shade = document.createElement('span');
+    shade.className = 'teaser-shade';
+    shade.setAttribute('aria-hidden','true');
 
     const content = document.createElement('span');
     content.className = 'card-content';
     content.innerHTML = `<span class="card-name">${city.name}</span><span class="card-sub">${city.short}</span>`;
 
-    btn.appendChild(teaser);
+    btn.appendChild(teaserCanvas);
+    btn.appendChild(shade);
     btn.appendChild(content);
     btn.addEventListener('click', ()=> enterCity(i));
     btn.addEventListener('keydown', onCardKeydown);
