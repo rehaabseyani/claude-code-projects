@@ -358,33 +358,33 @@ const CITIES = [
     description:"Harbour water lapping against the sandstone, distant gulls wheeling overhead, a ferry horn sounding across the bay, and a light salt breeze.",
     audio:{
       continuous:[
-        {type:'water', freq:520, q:0.9, gain:0.22, ampLfoRate:0.18, ampLfoDepth:0.4},
-        {type:'wind', freq:900, q:0.5, gain:0.10}
+        {filterType:'bandpass', freq:480, q:1.1, gain:0.22, ampLfoRate:0.18, ampLfoDepth:0.45},
+        {filterType:'highpass', freq:2400, q:0.6, gain:0.06}
       ],
       events:[
-        {fn:'gull', interval:[2600,7200], gain:0.30},
-        {fn:'ferryHorn', interval:[22000,48000], gain:0.22},
-        {fn:'distantChatter', interval:[9000,20000], gain:0.08}
+        {fn:'gull', interval:[2400,6500], gain:0.30},
+        {fn:'ferryHorn', interval:[24000,50000], gain:0.22},
+        {fn:'distantChatter', interval:[10000,22000], gain:0.07}
       ]
     }
   },
   {
     id:'dubai', name:'Dubai', short:'Desert heat & glass towers', tz:'Asia/Dubai', seed:22,
     palette:{
-      dayTop:[92,168,224], dayMid:[214,196,160], dayBottom:[244,222,180],
-      nightTop:[10,10,26], nightMid:[30,20,34], nightBottom:[54,34,30],
+      dayTop:[74,156,224], dayMid:[210,198,164], dayBottom:[250,226,174],
+      nightTop:[8,10,28], nightMid:[26,18,36], nightBottom:[58,36,32],
       sun:[255,226,150], moon:[224,220,232]
     },
     description:"Low desert wind, a distant highway hum, faint far-off construction, and every so often a call to prayer drifting softly across the skyline.",
     audio:{
       continuous:[
-        {type:'wind', freq:700, q:0.4, gain:0.16},
-        {type:'traffic', freq:220, q:0.7, gain:0.13}
+        {filterType:'lowpass', freq:380, q:0.5, gain:0.15},
+        {filterType:'bandpass', freq:200, q:0.9, gain:0.12}
       ],
       events:[
-        {fn:'constructionDistant', interval:[14000,30000], gain:0.10},
-        {fn:'callToPrayer', interval:[60000,120000], gain:0.14},
-        {fn:'siren', interval:[35000,70000], gain:0.06}
+        {fn:'constructionDistant', interval:[16000,32000], gain:0.09},
+        {fn:'callToPrayer', interval:[65000,125000], gain:0.14},
+        {fn:'planeFlyover', interval:[45000,90000], gain:0.09}
       ]
     }
   },
@@ -398,13 +398,13 @@ const CITIES = [
     description:"Steady traffic below, sirens far off in the distance, birdsong in the trees, and the occasional pass of a helicopter overhead.",
     audio:{
       continuous:[
-        {type:'traffic', freq:260, q:0.8, gain:0.20},
-        {type:'urbanHum', freq:150, q:0.6, gain:0.08}
+        {filterType:'bandpass', freq:260, q:1.0, gain:0.20},
+        {filterType:'lowpass', freq:140, q:0.5, gain:0.09}
       ],
       events:[
-        {fn:'siren', interval:[16000,36000], gain:0.12},
-        {fn:'bird', interval:[3500,9000], gain:0.16},
-        {fn:'helicopter', interval:[40000,80000], gain:0.18}
+        {fn:'siren', interval:[14000,30000], gain:0.13},
+        {fn:'bird', interval:[3000,8000], gain:0.16},
+        {fn:'helicopter', interval:[35000,70000], gain:0.18}
       ]
     }
   },
@@ -418,33 +418,34 @@ const CITIES = [
     description:"A steady urban hum, the rumble of a passing train, murmurs of street chatter below, and church bells tolling in the distance.",
     audio:{
       continuous:[
-        {type:'urbanHum', freq:180, q:0.6, gain:0.16},
-        {type:'wind', freq:650, q:0.5, gain:0.06}
+        {filterType:'lowpass', freq:170, q:0.6, gain:0.15},
+        {filterType:'highpass', freq:2200, q:0.7, gain:0.05, ampLfoRate:0.12, ampLfoDepth:0.5}
       ],
       events:[
-        {fn:'trainRumble', interval:[20000,42000], gain:0.20},
-        {fn:'distantChatter', interval:[7000,16000], gain:0.10},
-        {fn:'churchBells', interval:[50000,95000], gain:0.20}
+        {fn:'trainRumble', interval:[18000,38000], gain:0.20},
+        {fn:'distantChatter', interval:[6000,14000], gain:0.11},
+        {fn:'churchBells', interval:[48000,90000], gain:0.20}
       ]
     }
   },
   {
     id:'karachi', name:'Karachi', short:'Bustle & sea breeze', tz:'Asia/Karachi', seed:55,
     palette:{
-      dayTop:[112,164,206], dayMid:[210,196,168], dayBottom:[236,214,176],
-      nightTop:[10,10,24], nightMid:[28,22,32], nightBottom:[46,32,30],
-      sun:[255,220,150], moon:[220,218,230]
+      dayTop:[152,160,168], dayMid:[210,186,148], dayBottom:[222,190,142],
+      nightTop:[12,11,20], nightMid:[30,23,28], nightBottom:[44,31,25],
+      sun:[255,210,140], moon:[210,206,214]
     },
     description:"Dense street bustle, rickshaw and motorbike horns weaving through traffic, crows calling overhead, a vendor's cry, and a sea breeze drifting in from Clifton.",
     audio:{
       continuous:[
-        {type:'urbanHum', freq:210, q:0.7, gain:0.22},
-        {type:'wind', freq:800, q:0.4, gain:0.07}
+        {filterType:'bandpass', freq:220, q:1.3, gain:0.26},
+        {filterType:'bandpass', freq:750, q:0.4, gain:0.06}
       ],
       events:[
-        {fn:'rickshawHorn', interval:[3000,8000], gain:0.20},
-        {fn:'crow', interval:[5000,12000], gain:0.16},
-        {fn:'vendorCall', interval:[11000,24000], gain:0.10}
+        {fn:'rickshawHorn', interval:[2000,5000], gain:0.20},
+        {fn:'crow', interval:[4000,10000], gain:0.16},
+        {fn:'vendorCall', interval:[9000,20000], gain:0.10},
+        {fn:'motorbikePass', interval:[6000,14000], gain:0.16}
       ]
     }
   }
@@ -507,56 +508,96 @@ function drawHazySkyline(ctx, w, groundY, offsetX, dayFactor){
 }
 function drawHarbourBridge(ctx, cx, groundY, scaleBase, dayFactor){
   const s = scaleBase/900;
-  const spanW = 480*s, controlH = 300*s, deckY = groundY - 46*s;
-  const color = dayFactor>0.45 ? 'rgba(38,42,52,0.9)' : 'rgba(8,10,18,0.94)';
-  ctx.fillStyle = color; ctx.strokeStyle = color;
-  ctx.fillRect(cx-spanW/2-12*s, deckY, 24*s, groundY-deckY+30*s);
-  ctx.fillRect(cx+spanW/2-12*s, deckY, 24*s, groundY-deckY+30*s);
-  ctx.fillRect(cx-spanW/2, deckY-7*s, spanW, 12*s);
-  ctx.lineWidth = 8*s;
-  ctx.beginPath();
-  ctx.moveTo(cx-spanW/2, deckY);
-  ctx.quadraticCurveTo(cx, deckY-controlH, cx+spanW/2, deckY);
-  ctx.stroke();
-  ctx.lineWidth = 2*s;
-  const segs = 16;
-  for(let i=1;i<segs;i++){
-    const t = i/segs;
-    const x = cx-spanW/2 + t*spanW;
-    const archY = deckY - controlH*2*t*(1-t);
-    ctx.beginPath(); ctx.moveTo(x, archY); ctx.lineTo(x, deckY); ctx.stroke();
+  const spanW = 460*s;
+  const deckY = groundY - 40*s;
+  const outerRise = 132*s, innerRise = 98*s;
+  const color = dayFactor>0.45 ? 'rgba(32,36,46,0.92)' : 'rgba(5,7,13,0.96)';
+  const N = 36;
+  const outer = [], inner = [];
+  for(let i=0;i<=N;i++){
+    const t = i/N;
+    const x = cx - spanW/2 + t*spanW;
+    // quadratic-bezier rise formula: y(t) = base - 4*rise*t*(1-t)
+    outer.push([x, deckY - 4*outerRise*t*(1-t)]);
+    inner.push([x, deckY - 4*innerRise*t*(1-t)]);
   }
+  // filled truss box: trace the outer curve forward, inner curve backward
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(outer[0][0], outer[0][1]);
+  outer.forEach(p=> ctx.lineTo(p[0],p[1]));
+  for(let i=inner.length-1;i>=0;i--) ctx.lineTo(inner[i][0], inner[i][1]);
+  ctx.closePath();
+  ctx.fill();
+  // X-braced truss lattice inside the box
+  ctx.strokeStyle = dayFactor>0.45 ? 'rgba(72,78,92,0.85)' : 'rgba(18,20,28,0.9)';
+  ctx.lineWidth = Math.max(0.8,1.3*s);
+  for(let i=0;i<N;i+=2){
+    ctx.beginPath(); ctx.moveTo(outer[i][0],outer[i][1]); ctx.lineTo(inner[i+1][0],inner[i+1][1]); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(inner[i][0],inner[i][1]); ctx.lineTo(outer[i+1][0],outer[i+1][1]); ctx.stroke();
+  }
+  // hangers from the arch underside down to the deck
+  ctx.lineWidth = Math.max(0.7,1.1*s);
+  for(let i=4;i<N-3;i+=3){
+    const p = inner[i];
+    ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(p[0],deckY); ctx.stroke();
+  }
+  // deck
+  ctx.fillStyle = color;
+  ctx.fillRect(cx-spanW/2-8*s, deckY-5*s, spanW+16*s, 9*s);
+  // granite pylons at both ends
+  [-1,1].forEach(side=>{
+    const pw = 30*s, ph = 112*s;
+    const px = cx + side*(spanW/2 + pw/2 + 3*s);
+    ctx.fillStyle = color;
+    ctx.fillRect(px-pw/2, deckY-16*s, pw, ph);
+    ctx.strokeStyle = dayFactor>0.45 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = Math.max(0.6,1*s);
+    for(let f=1;f<4;f++){
+      const fx = px-pw/2+pw*f/4;
+      ctx.beginPath(); ctx.moveTo(fx,deckY-10*s); ctx.lineTo(fx,deckY-16*s+ph*0.8); ctx.stroke();
+    }
+  });
 }
 function drawOperaHouse(ctx, cx, groundY, scaleBase, dayFactor){
   const s = scaleBase/900;
-  const baseColor = dayFactor>0.4 ? '#eef0ea' : 'rgba(24,28,38,0.92)';
-  const shadeColor = dayFactor>0.4 ? '#c7cbc0' : 'rgba(12,14,20,0.9)';
-  ctx.fillStyle = dayFactor>0.4 ? '#d9cdb8' : 'rgba(18,20,26,0.85)';
-  ctx.fillRect(cx-130*s, groundY-16*s, 260*s, 16*s);
-  const shells = [
-    {dx:-95,w:70,h:78,tilt:-0.12},{dx:-45,w:78,h:100,tilt:-0.05},
-    {dx:15,w:82,h:112,tilt:0.03},{dx:70,w:66,h:86,tilt:0.10},{dx:112,w:46,h:60,tilt:0.16}
+  const baseColor = dayFactor>0.4 ? '#f4f5ef' : 'rgba(26,30,40,0.92)';
+  const shadeColor = dayFactor>0.4 ? '#b7bbae' : 'rgba(10,12,17,0.9)';
+  ctx.fillStyle = dayFactor>0.4 ? '#cdbfa4' : 'rgba(16,18,24,0.85)';
+  ctx.fillRect(cx-155*s, groundY-16*s, 310*s, 16*s);
+  // two shell clusters (main concert hall group + smaller side group),
+  // each shell a pointed sail with fan-ridge shingle lines radiating
+  // from near its base up to the curved edge.
+  const groups = [
+    [ {dx:-125,w:62,h:66,tilt:-0.18}, {dx:-76,w:74,h:92,tilt:-0.08},
+      {dx:-14,w:82,h:114,tilt:0.0}, {dx:50,w:70,h:96,tilt:0.09} ],
+    [ {dx:122,w:48,h:54,tilt:0.15}, {dx:162,w:36,h:42,tilt:0.24} ]
   ];
-  shells.forEach(sh=>{
-    const x = cx+sh.dx*s, w = sh.w*s, h = sh.h*s;
-    ctx.save();
-    ctx.translate(x, groundY-16*s);
-    ctx.rotate(sh.tilt);
-    ctx.fillStyle = baseColor;
-    ctx.beginPath();
-    ctx.moveTo(-w*0.5,0);
-    ctx.quadraticCurveTo(-w*0.1,-h*0.55, w*0.08,-h);
-    ctx.quadraticCurveTo(w*0.32,-h*0.5, w*0.5,0);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = shadeColor; ctx.lineWidth = 1.2*s;
-    for(let k=1;k<5;k++){
-      const t = k/5;
+  groups.forEach(group=>{
+    group.forEach(sh=>{
+      const x = cx+sh.dx*s, w = sh.w*s, h = sh.h*s;
+      ctx.save();
+      ctx.translate(x, groundY-16*s);
+      ctx.rotate(sh.tilt);
+      ctx.fillStyle = baseColor;
       ctx.beginPath();
-      ctx.moveTo(-w*0.5+t*w*0.55, 0);
-      ctx.quadraticCurveTo(-w*0.1+t*w*0.16, -h*0.55*Math.min(1,t*1.3), w*0.08*t*1.1, -h*t);
-      ctx.stroke();
-    }
-    ctx.restore();
+      ctx.moveTo(-w*0.5, 0);
+      ctx.bezierCurveTo(-w*0.48,-h*0.4, -w*0.2,-h*0.86, w*0.02,-h);
+      ctx.bezierCurveTo(w*0.2,-h*0.82, w*0.4,-h*0.36, w*0.48, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = shadeColor; ctx.lineWidth = Math.max(0.7,1*s);
+      const ridges = 7;
+      for(let k=1;k<ridges;k++){
+        const t = k/ridges;
+        const ex = lerp(-w*0.46, w*0.02, Math.pow(t,0.9));
+        const ey = -h*Math.pow(t,0.92);
+        ctx.beginPath();
+        ctx.moveTo(-w*0.03, -h*0.02);
+        ctx.quadraticCurveTo(ex*0.55, ey*0.6, ex, ey);
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
   });
 }
 function drawHarbourWater(ctx, w, h, waterTop, dayFactor, time){
@@ -612,14 +653,17 @@ function renderSydney(ctx, w, h, state, now, dt, opts, city){
 }
 
 /* ---------------- Dubai: Sheikh Zayed Road, glass towers, traffic ---------------- */
+const DUBAI_TOP_TYPES = ['flat','point','step','dome','antenna','twist'];
 function makeDubaiTowers(rng, side){
   const towers = [];
-  const count = 6;
+  const count = 11;
   for(let i=0;i<count;i++){
     towers.push({
       depth: i/(count-1), side,
-      baseW: 70+rng()*50, baseH: 240+rng()*260,
-      hue: rng(), spike: rng()<0.25
+      baseW: 40+rng()*58, baseH: 170+rng()*300,
+      hue: rng(),
+      colorFamily: rng(),
+      topType: DUBAI_TOP_TYPES[Math.floor(rng()*DUBAI_TOP_TYPES.length)]
     });
   }
   return towers;
@@ -627,7 +671,7 @@ function makeDubaiTowers(rng, side){
 function buildDubaiState(rng, w, h){
   const horizonY = h*0.58;
   const cars = [];
-  for(let i=0;i<6;i++){
+  for(let i=0;i<7;i++){
     cars.push({ lane:i%3, t:rng(), speed:0.5+rng()*0.4, dir: rng()<0.5?1:-1, hue:rng() });
   }
   return {
@@ -638,40 +682,103 @@ function buildDubaiState(rng, w, h){
     clouds: makeClouds(rng, w, h, 3, 0.04, 0.2)
   };
 }
+function dubaiTowerTone(t, dayFactor){
+  let hueBase, sat;
+  if(t.colorFamily<0.4){ hueBase=204; sat=30+t.hue*18; }       // cool blue glass
+  else if(t.colorFamily<0.68){ hueBase=38; sat=32+t.hue*20; }   // warm gold glass
+  else { hueBase=210; sat=5+t.hue*8; }                          // silver/white
+  const light = dayFactor>0.4 ? 52+t.hue*20 : 7+t.hue*7;
+  return `hsl(${hueBase+t.hue*12},${sat}%,${light}%)`;
+}
 function drawDubaiTower(ctx, t, w, h, horizonY, dayFactor, offsetX){
   const vx = w*0.5+offsetX*0.5;
   const edgeX = t.side==='left' ? -20 : w+20;
   const x = lerp(edgeX, vx, Math.pow(t.depth,0.9)) + offsetX*(1-t.depth)*0.3;
-  const scale = lerp(1, 0.12, t.depth);
+  const scale = lerp(1, 0.08, t.depth);
   const bw = t.baseW*scale, bh = t.baseH*scale;
   const baseY = lerp(h*0.98, horizonY, t.depth);
   const topY = baseY-bh;
   const x0 = t.side==='left' ? x : x-bw;
-  const tone = dayFactor>0.4
-    ? `hsl(${200+t.hue*40},${30+t.hue*20}%,${58+t.hue*15}%)`
-    : `hsl(${210+t.hue*30},20%,${9+t.hue*6}%)`;
+  const tone = dubaiTowerTone(t, dayFactor);
   ctx.fillStyle = tone;
-  ctx.fillRect(x0, topY, bw, bh);
-  ctx.strokeStyle = dayFactor>0.4 ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)';
-  ctx.lineWidth = Math.max(0.5,1*scale);
-  const seams = Math.max(2, Math.round(bw/(10*scale+6)));
+
+  if(t.topType==='point'){
+    const capH = bh*0.2;
+    ctx.fillRect(x0, topY+capH, bw, bh-capH);
+    ctx.beginPath();
+    ctx.moveTo(x0,topY+capH); ctx.lineTo(x0+bw/2,topY); ctx.lineTo(x0+bw,topY+capH);
+    ctx.closePath(); ctx.fill();
+  } else if(t.topType==='step'){
+    const tiers = 4, tierH = bh/tiers;
+    for(let tier=0; tier<tiers; tier++){
+      const tw = bw*(1-tier*0.15);
+      const tx0 = x0+(bw-tw)/2;
+      ctx.fillRect(tx0, topY+tier*tierH, tw, tierH+1);
+    }
+  } else if(t.topType==='dome'){
+    const domeR = bw/2;
+    ctx.fillRect(x0, topY+domeR, bw, bh-domeR);
+    ctx.beginPath(); ctx.arc(x0+bw/2, topY+domeR, domeR, Math.PI, 0); ctx.fill();
+  } else if(t.topType==='twist'){
+    const bands = 9;
+    for(let bnd=0; bnd<bands; bnd++){
+      const bandH = bh/bands;
+      const tw = bw*0.8;
+      const twist = Math.sin((bnd/bands)*Math.PI*0.5) * bw*0.32 * (bnd/bands);
+      ctx.fillRect(x0+twist, topY+bnd*bandH, tw, bandH+1);
+    }
+  } else if(t.topType==='antenna'){
+    ctx.fillRect(x0, topY, bw, bh);
+    ctx.strokeStyle = tone; ctx.lineWidth = Math.max(0.8,1.5*scale);
+    ctx.beginPath(); ctx.moveTo(x0+bw/2,topY); ctx.lineTo(x0+bw/2,topY-36*scale); ctx.stroke();
+  } else {
+    ctx.fillRect(x0, topY, bw, bh);
+  }
+
+  ctx.strokeStyle = dayFactor>0.4 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = Math.max(0.4,0.8*scale);
+  const seams = Math.max(2, Math.round(bw/(9*scale+6)));
   for(let sN=1;sN<seams;sN++){
     const sx = x0 + (bw*sN/seams);
     ctx.beginPath(); ctx.moveTo(sx, topY); ctx.lineTo(sx, baseY); ctx.stroke();
   }
-  if(t.spike){
-    ctx.beginPath(); ctx.moveTo(x0+bw/2, topY); ctx.lineTo(x0+bw/2, topY-40*scale);
-    ctx.lineWidth = 1.5*scale; ctx.stroke();
-  }
   if(dayFactor<0.5){
     const alphaBase = (0.5-dayFactor)*2;
-    const rows = Math.max(2, Math.floor(bh/(14*scale+1)));
-    const cols = Math.max(1, Math.floor(bw/(10*scale+1)));
+    const rows = Math.max(2, Math.floor(bh/(13*scale+1)));
+    const cols = Math.max(1, Math.floor(bw/(9*scale+1)));
     for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
       if(((r*31+c*17+Math.floor(t.hue*97))%5)===0){
         ctx.fillStyle = `rgba(255,214,140,${0.5*alphaBase})`;
         ctx.fillRect(x0+2+c*(bw/cols), topY+2+r*(bh/rows), Math.max(1,3*scale), Math.max(1,4*scale));
       }
+    }
+  }
+}
+function drawBurjKhalifa(ctx, cx, groundY, scaleBase, dayFactor){
+  const s = scaleBase/900;
+  const tone = dayFactor>0.4 ? 'hsl(200,18%,74%)' : 'hsl(200,10%,14%)';
+  ctx.fillStyle = tone;
+  const tiers = [ [0,150,46], [0,230,36], [0,300,26], [0,360,16], [0,410,7] ];
+  tiers.forEach(([dx,hgt,w])=>{
+    ctx.fillRect(cx+dx*s-w*s/2, groundY-hgt*s, w*s, hgt*s);
+  });
+  ctx.strokeStyle = tone; ctx.lineWidth = Math.max(1,2*s);
+  ctx.beginPath(); ctx.moveTo(cx,groundY-410*s); ctx.lineTo(cx,groundY-475*s); ctx.stroke();
+  ctx.strokeStyle = dayFactor>0.4 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = Math.max(0.5,1*s);
+  [150,230,300,360].forEach(hgt=>{
+    ctx.beginPath(); ctx.moveTo(cx-4*s,groundY-hgt*s); ctx.lineTo(cx-4*s,groundY-4*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+4*s,groundY-hgt*s); ctx.lineTo(cx+4*s,groundY-4*s); ctx.stroke();
+  });
+  if(dayFactor<0.5){
+    const rng = mulberry32(42);
+    const alphaBase = (0.5-dayFactor)*2;
+    for(let i=0;i<70;i++){
+      const tier = tiers[Math.floor(rng()*tiers.length)];
+      const yy = groundY - rng()*tier[1]*s;
+      const xx = cx + (rng()-0.5)*tier[2]*s*0.8;
+      ctx.fillStyle = `rgba(255,214,140,${0.55*alphaBase})`;
+      ctx.fillRect(xx,yy,Math.max(1,2*s),Math.max(1,3*s));
     }
   }
 }
@@ -716,6 +823,7 @@ function updateAndDrawDubaiCars(ctx, cars, w, h, horizonY, offsetX, dayFactor, d
 function renderDubai(ctx, w, h, state, now, dt, opts, city){
   drawSunMoon(ctx, w, h, city.palette, state.dayFactor, (state.time*0.004)%1);
   drawClouds(ctx, state.clouds, w, h, state.parallaxX, state.dayFactor, dt, opts.reduced);
+  drawBurjKhalifa(ctx, w*0.5+state.parallaxX*4, state.horizonY, Math.min(w,h), state.dayFactor);
   drawDubaiRoad(ctx, w, h, state.horizonY, state.parallaxX, state.time);
   const towers = [...state.towersLeft, ...state.towersRight].sort((a,b)=>b.depth-a.depth);
   towers.forEach(t=> drawDubaiTower(ctx, t, w, h, state.horizonY, state.dayFactor, state.parallaxX));
@@ -894,15 +1002,25 @@ function drawRowhomes(ctx, homes, groundY, offsetX, dayFactor){
 function drawTreeCanopy(ctx, w, h, groundY, parallaxX, dayFactor, seed){
   const rng = mulberry32(seed);
   const leafColor = dayFactor>0.35 ? 'rgba(90,110,60,0.9)' : 'rgba(30,36,26,0.9)';
+  const darkLeafColor = dayFactor>0.35 ? 'rgba(66,86,44,0.85)' : 'rgba(20,26,18,0.85)';
   for(let i=0;i<3;i++){
     const tx = w*(0.15+i*0.35) + parallaxX*20;
-    const trunkH = h*0.3;
-    ctx.strokeStyle = 'rgba(45,32,26,0.95)'; ctx.lineWidth = 10;
-    ctx.beginPath(); ctx.moveTo(tx,groundY); ctx.lineTo(tx-4,groundY-trunkH); ctx.stroke();
+    const trunkH = h*0.26;
+    const trunkTopY = groundY - trunkH;
+    ctx.strokeStyle = 'rgba(45,32,26,0.95)'; ctx.lineWidth = 11;
+    ctx.beginPath(); ctx.moveTo(tx,groundY); ctx.lineTo(tx-3,trunkTopY+14); ctx.stroke();
+    ctx.strokeStyle = 'rgba(45,32,26,0.7)'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(tx-2,trunkTopY+50); ctx.lineTo(tx-26,trunkTopY+10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx-1,trunkTopY+40); ctx.lineTo(tx+24,trunkTopY+6); ctx.stroke();
+    // anchor blob sits directly over the trunk top so the canopy always
+    // connects — the randomized blobs below only add fullness above it.
     ctx.fillStyle = leafColor;
-    for(let b=0;b<6;b++){
-      const bx = tx+(rng()-0.5)*120, by = groundY-trunkH-20-rng()*90;
-      ctx.beginPath(); ctx.ellipse(bx,by,50+rng()*30,36+rng()*22,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(tx, trunkTopY+12, 60, 46, 0, 0, Math.PI*2); ctx.fill();
+    for(let b=0;b<7;b++){
+      const bx = tx+(rng()-0.5)*140;
+      const by = trunkTopY - rng()*85;
+      ctx.fillStyle = rng()<0.4 ? darkLeafColor : leafColor;
+      ctx.beginPath(); ctx.ellipse(bx,by,46+rng()*30,34+rng()*20,0,0,Math.PI*2); ctx.fill();
     }
   }
 }
@@ -960,12 +1078,14 @@ function renderPhilly(ctx, w, h, state, now, dt, opts, city){
 /* ---------------- Karachi: street canyon, moving rickshaws ---------------- */
 function makeKarachiBuildings(rng, side){
   const list = [];
-  const count = 7;
+  const count = 9;
   for(let i=0;i<count;i++){
     list.push({
       depth: i/(count-1), side,
-      baseW: 50+rng()*40, baseH: 120+rng()*160,
-      hue: rng(), signage: rng()<0.4
+      baseW: 42+rng()*44, baseH: 100+rng()*190,
+      hue: rng(), signage: rng()<0.4,
+      balconies: rng()<0.6, waterTank: rng()<0.35,
+      laundry: rng()<0.45
     });
   }
   return list;
@@ -973,8 +1093,11 @@ function makeKarachiBuildings(rng, side){
 function buildKarachiState(rng, w, h){
   const horizonY = h*0.56;
   const rickshaws = [];
-  for(let i=0;i<4;i++){
-    rickshaws.push({ lane:i%3, t:rng(), speed:0.4+rng()*0.35, dir: rng()<0.6?1:-1, hue:rng() });
+  for(let i=0;i<3;i++){
+    rickshaws.push({ lane:i%3, t:rng(), speed:0.4+rng()*0.35, dir: rng()<0.6?1:-1, hue:rng(), kind:'rickshaw' });
+  }
+  for(let i=0;i<3;i++){
+    rickshaws.push({ lane:i%3, t:rng(), speed:0.5+rng()*0.4, dir: rng()<0.6?1:-1, hue:rng(), kind:'motorbike' });
   }
   const wires = [];
   for(let i=0;i<3;i++) wires.push({ y0: horizonY-10-i*14, sag: 12+rng()*10 });
@@ -991,7 +1114,7 @@ function drawKarachiBuilding(ctx, b, w, h, horizonY, dayFactor, offsetX){
   const vx = w*0.5+offsetX*0.5;
   const edgeX = b.side==='left' ? -20 : w+20;
   const x = lerp(edgeX, vx, Math.pow(b.depth,0.85)) + offsetX*(1-b.depth)*0.25;
-  const scale = lerp(1, 0.15, b.depth);
+  const scale = lerp(1, 0.13, b.depth);
   const bw = b.baseW*scale, bh = b.baseH*scale;
   const baseY = lerp(h*0.96, horizonY, b.depth);
   const topY = baseY-bh;
@@ -1009,6 +1132,25 @@ function drawKarachiBuilding(ctx, b, w, h, horizonY, dayFactor, offsetX){
     ctx.fillStyle = lit ? `rgba(255,205,140,${0.6*nightness})` : 'rgba(20,16,14,0.35)';
     ctx.fillRect(x0+2+c*(bw/cols), topY+2+r*(bh/rows), Math.max(1,4*scale), Math.max(1,5*scale));
   }
+  if(b.balconies && scale>0.3){
+    const bRows = Math.max(1,Math.floor(rows/2));
+    ctx.fillStyle = dayFactor>0.35 ? 'rgba(140,120,100,0.7)' : 'rgba(6,6,8,0.7)';
+    for(let r=1;r<bRows;r++){
+      const by = topY + (r*2-0.5)*(bh/rows);
+      ctx.fillRect(x0-2*scale, by, bw+4*scale, Math.max(1,2*scale));
+      if(b.laundry && r%2===0){
+        const colors=['#e8e0d0','#c0392b','#2980b9','#f1c40f'];
+        for(let k=0;k<3;k++){
+          ctx.fillStyle = colors[(k+Math.floor(b.hue*7))%colors.length];
+          ctx.fillRect(x0+bw*0.2+k*bw*0.25, by+1*scale, Math.max(1,3*scale), Math.max(1,4*scale));
+        }
+      }
+    }
+  }
+  if(b.waterTank && scale>0.35){
+    ctx.fillStyle = dayFactor>0.35 ? 'rgba(90,80,60,0.9)' : 'rgba(4,4,5,0.9)';
+    ctx.fillRect(x0+bw*0.62, topY-bh*0.06, bw*0.2, bh*0.06);
+  }
   if(b.signage && scale>0.4){
     ctx.fillStyle = ['#c0392b','#2980b9','#27ae60','#e67e22'][Math.floor(b.hue*4)];
     ctx.fillRect(x0, baseY-bh*0.18, bw, bh*0.07);
@@ -1016,7 +1158,7 @@ function drawKarachiBuilding(ctx, b, w, h, horizonY, dayFactor, offsetX){
 }
 function drawKarachiStreet(ctx, w, h, horizonY, offsetX){
   const vx = w*0.5+offsetX*0.5;
-  ctx.fillStyle = '#4a4640';
+  ctx.fillStyle = '#5b4d3c';
   ctx.beginPath();
   ctx.moveTo(vx-8,horizonY); ctx.lineTo(vx+8,horizonY);
   ctx.lineTo(w*0.66,h); ctx.lineTo(w*0.34,h);
@@ -1046,15 +1188,27 @@ function updateAndDrawRickshaws(ctx, rickshaws, w, h, horizonY, offsetX, dayFact
     const t = clamp(r.t,0,1);
     const pt = perspectivePoint(t, (r.lane-1)*30, (r.lane-1)*3, w, h, horizonY, offsetX);
     const s = pt.scale, dir = r.dir;
-    const bodyColor = ['#f1c40f','#2ecc71','#e67e22'][Math.floor(r.hue*3)];
     ctx.save();
     ctx.translate(pt.x, pt.y);
     ctx.scale(dir,1);
-    ctx.fillStyle = bodyColor;
-    ctx.beginPath(); ctx.ellipse(0,-14*s,12*s,8*s,0,Math.PI,0); ctx.fill();
-    ctx.fillRect(-10*s,-14*s,20*s,12*s);
-    ctx.fillStyle = '#1a1a1a';
-    ctx.beginPath(); ctx.arc(-7*s,0,3*s,0,Math.PI*2); ctx.arc(7*s,0,3*s,0,Math.PI*2); ctx.fill();
+    if(r.kind==='motorbike'){
+      const bodyColor = ['#2c3e50','#7f2f2f','#3a3a3a'][Math.floor(r.hue*3)];
+      ctx.strokeStyle = bodyColor; ctx.lineWidth = Math.max(1,2*s);
+      ctx.beginPath(); ctx.moveTo(-7*s,-2*s); ctx.lineTo(4*s,-9*s); ctx.lineTo(7*s,-2*s); ctx.stroke();
+      ctx.fillStyle = '#c9a877';
+      ctx.beginPath(); ctx.arc(1*s,-13*s,3*s,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = bodyColor;
+      ctx.fillRect(-3*s,-11*s,7*s,6*s);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath(); ctx.arc(-7*s,0,2.6*s,0,Math.PI*2); ctx.arc(7*s,0,2.6*s,0,Math.PI*2); ctx.fill();
+    } else {
+      const bodyColor = ['#f1c40f','#2ecc71','#e67e22'][Math.floor(r.hue*3)];
+      ctx.fillStyle = bodyColor;
+      ctx.beginPath(); ctx.ellipse(0,-14*s,12*s,8*s,0,Math.PI,0); ctx.fill();
+      ctx.fillRect(-10*s,-14*s,20*s,12*s);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath(); ctx.arc(-7*s,0,3*s,0,Math.PI*2); ctx.arc(7*s,0,3*s,0,Math.PI*2); ctx.fill();
+    }
     ctx.restore();
     if(dayFactor<=0.4){
       ctx.fillStyle = 'rgba(255,240,180,0.9)';
@@ -1329,7 +1483,7 @@ const AudioEngine = (function(){
     src.buffer = getNoiseBuffer();
     src.loop = true;
     const filter = ctx.createBiquadFilter();
-    filter.type = cfg.freq < 300 ? 'lowpass' : (cfg.type==='wind'?'bandpass':'bandpass');
+    filter.type = cfg.filterType || (cfg.freq < 300 ? 'lowpass' : 'bandpass');
     filter.frequency.value = cfg.freq;
     filter.Q.value = cfg.q;
     const gain = ctx.createGain();
@@ -1637,6 +1791,48 @@ const SYNTH = {
     g.gain.linearRampToValueAtTime(0, t0+dur);
     src.connect(bp).connect(g).connect(pn);
     src.start(t0); src.stop(t0+dur);
+  },
+  motorbikePass(ctx, dest, {gain=0.18, pan=0}){
+    const t0 = ctx.currentTime, dur=1.6;
+    const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : dest;
+    if(pn.connect) pn.connect(dest);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(gain, t0+0.3);
+    g.gain.linearRampToValueAtTime(0, t0+dur);
+    g.connect(pn);
+    const osc = ctx.createOscillator(); osc.type='sawtooth';
+    osc.frequency.setValueAtTime(180, t0);
+    osc.frequency.linearRampToValueAtTime(340, t0+dur*0.5);
+    osc.frequency.linearRampToValueAtTime(140, t0+dur);
+    const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1200;
+    osc.connect(lp).connect(g);
+    osc.start(t0); osc.stop(t0+dur);
+    if(pn.pan){
+      pn.pan.setValueAtTime(pan-0.6, t0);
+      pn.pan.linearRampToValueAtTime(pan+0.6, t0+dur);
+    }
+  },
+  planeFlyover(ctx, dest, {gain=0.1}){
+    const t0 = ctx.currentTime, dur=10;
+    const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : dest;
+    if(pn.connect) pn.connect(dest);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(gain, t0+3);
+    g.gain.linearRampToValueAtTime(0, t0+dur);
+    g.connect(pn);
+    const src = ctx.createBufferSource();
+    const len = ctx.sampleRate*dur;
+    const buf = ctx.createBuffer(1,len,ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=340; bp.Q.value=1.2;
+    src.connect(bp).connect(g);
+    src.start(t0); src.stop(t0+dur);
+    if(pn.pan){
+      pn.pan.setValueAtTime(-1, t0);
+      pn.pan.linearRampToValueAtTime(1, t0+dur);
+    }
   }
 };
 
@@ -1796,10 +1992,13 @@ function announce(msg){ liveRegion.textContent = msg; }
 
 /* --- day/night --- */
 function computeTargetDayFactor(index){
-  const city = CITIES[index];
   if(dayNightMode === 'day') return 1;
   if(dayNightMode === 'night') return 0;
-  return autoDayFactor(getCityHourFraction(city.tz));
+  // Auto mode uses the viewer's own local time for every city, rather than
+  // each city's real timezone, so lighting stays in sync when switching —
+  // the per-city clock display still shows each city's true local time.
+  const now = new Date();
+  return autoDayFactor(now.getHours() + now.getMinutes()/60);
 }
 function refreshDayNightTargets(){
   if(stateA) stateA.dayFactorTarget = computeTargetDayFactor(stateA.cityIndex);
