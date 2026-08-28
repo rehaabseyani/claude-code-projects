@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>City Windows</title>
+<!--
+  City Windows — a first-person window view into five cities.
+  All visuals are procedural (canvas + CSS), all audio is synthesized
+  live with the Web Audio API. No external assets, no build step.
+-->
+<style>
+  :root{
+    --frame-thick: clamp(16px, 3vw, 46px);
+    --mullion-thick: clamp(10px, 1.7vw, 26px);
+    --sill-thick: clamp(26px, 4.2vw, 64px);
+    --frame-grad: linear-gradient(135deg, #4a3524 0%, #6b4a30 35%, #3c2a1b 70%, #2a1c12 100%);
+    --ui-bg: rgba(12, 14, 18, 0.55);
+    --ui-fg: #f2ede4;
+    --ui-accent: #e8c07a;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background:#05060a; color:var(--ui-fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  button{ font-family:inherit; }
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
+  /* ---------- Landing screen ---------- */
+  #landing{
+    position:fixed; inset:0; z-index:20;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:clamp(20px,4vh,48px);
+    background:
+      radial-gradient(120% 90% at 50% -10%, #1b2438 0%, #0a0d16 55%, #05060a 100%);
+    transition: opacity .7s ease, transform .7s ease, visibility 0s linear 0s;
+    padding: calc(24px + var(--safe-t)) calc(20px + var(--safe-r)) calc(24px + var(--safe-b)) calc(20px + var(--safe-l));
+  }
+  #landing.hidden{
+    opacity:0; transform:scale(1.03); pointer-events:none; visibility:hidden;
+    transition: opacity .7s ease, transform .7s ease, visibility 0s linear .7s;
+  }
+  .landing-header{ text-align:center; max-width:640px; }
+  .landing-header h1{
+    margin:0 0 8px; font-size:clamp(28px,5vw,44px); font-weight:600; letter-spacing:.01em;
+  }
+  .landing-header p{
+    margin:0; color:#b9c0cc; font-size:clamp(13px,1.6vw,16px); line-height:1.5;
+  }
+  .city-strip{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:clamp(12px,2vw,22px);
+    max-width:1180px; width:100%;
+  }
+  .city-card{
+    position:relative; width:clamp(150px,20vw,220px); height:clamp(210px,28vw,300px);
+    border-radius:14px; border:1px solid rgba(255,255,255,.14);
+    background:#0c0f16; color:#fff; cursor:pointer; overflow:hidden;
+    padding:0; text-align:left;
+    transform: translateY(0) scale(1);
+    transition: transform .35s cubic-bezier(.2,.8,.3,1), box-shadow .35s ease, border-color .35s ease;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  }
+  .city-card:hover, .city-card:focus-visible{
+    transform: translateY(-8px) scale(1.03);
+    border-color: rgba(255,255,255,.4);
+    box-shadow: 0 18px 34px rgba(0,0,0,.5);
+    outline: none;
+  }
+  .city-card:focus-visible{ box-shadow: 0 18px 34px rgba(0,0,0,.5), 0 0 0 3px var(--ui-accent); }
+  .teaser{
+    position:absolute; inset:0; background-size:220% 220%; background-position:30% 40%;
+    transition: background-position .8s ease;
+  }
+  .city-card:hover .teaser, .city-card:focus-visible .teaser{ background-position:70% 60%; }
+  .teaser.sydney{ background-image: linear-gradient(200deg,#12324a,#1f6f97 45%,#bfe3ee 100%); }
+  .teaser.dubai{ background-image: linear-gradient(200deg,#3a1f12,#c47a2e 45%,#ffe2ad 100%); }
+  .teaser.dc{ background-image: linear-gradient(200deg,#1a2233,#3a5170 45%,#dce7ef 100%); }
+  .teaser.philly{ background-image: linear-gradient(200deg,#251a2e,#5c3d63 45%,#f0c9d8 100%); }
+  .teaser.karachi{ background-image: linear-gradient(200deg,#241a12,#8a5a2e 45%,#ffd9a0 100%); }
+  .teaser::after{
+    content:""; position:absolute; left:0; right:0; bottom:0; height:46%;
+    background: rgba(3,4,8,.55);
+    transition: transform .5s ease;
+  }
+  .city-card:hover .teaser::after, .city-card:focus-visible .teaser::after{ transform: translateY(-4%); }
+  .teaser.sydney::after{ clip-path: polygon(0% 100%,0% 60%,8% 60%,8% 38%,14% 38%,14% 55%,22% 20%,26% 55%,34% 42%,40% 60%,40% 30%,46% 30%,46% 60%,58% 45%,64% 60%,64% 40%,70% 40%,70% 65%,80% 50%,86% 65%,100% 65%,100% 100%); }
+  .teaser.dubai::after{ clip-path: polygon(0% 100%,0% 70%,10% 70%,10% 55%,18% 55%,18% 65%,28% 65%,28% 8%,31% 4%,34% 8%,34% 65%,44% 65%,44% 45%,52% 45%,52% 65%,62% 65%,62% 30%,68% 30%,68% 65%,78% 65%,78% 50%,86% 50%,86% 65%,100% 65%,100% 100%); }
+  .teaser.dc::after{ clip-path: polygon(0% 100%,0% 72%,14% 72%,14% 60%,26% 60%,26% 46%,30% 34%,34% 46%,34% 60%,46% 60%,46% 72%,54% 72%,54% 18%,57% 18%,57% 72%,66% 72%,66% 62%,78% 62%,78% 72%,100% 72%,100% 100%); }
+  .teaser.philly::after{ clip-path: polygon(0% 100%,0% 68%,10% 60%,16% 68%,22% 55%,28% 68%,34% 68%,34% 26%,38% 20%,40% 14%,42% 20%,46% 26%,46% 68%,58% 68%,58% 56%,66% 56%,66% 68%,76% 60%,82% 68%,100% 68%,100% 100%); }
+  .teaser.karachi::after{ clip-path: polygon(0% 100%,0% 66%,8% 66%,8% 20%,10% 12%,12% 20%,12% 66%,22% 66%,22% 50%,32% 50%,32% 66%,44% 66%,44% 58%,50% 58%,50% 15%,52% 8%,54% 15%,54% 58%,60% 58%,60% 66%,72% 66%,72% 46%,80% 46%,80% 66%,90% 66%,90% 54%,100% 54%,100% 100%); }
+  .card-content{
+    position:absolute; left:0; right:0; bottom:0; padding:14px 16px 16px;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .card-name{ font-size:clamp(16px,2vw,20px); font-weight:600; text-shadow:0 2px 8px rgba(0,0,0,.6); }
+  .card-sub{ font-size:12px; color:#dfe4ea; opacity:.85; text-shadow:0 1px 4px rgba(0,0,0,.6); }
+
+  /* ---------- Window experience ---------- */
+  #experience{
+    position:fixed; inset:0; z-index:10; opacity:0; transform:scale(1.02);
+    pointer-events:none; visibility:hidden;
+    transition: opacity .8s ease, transform .8s ease, visibility 0s linear .8s;
+  }
+  #experience.visible{
+    opacity:1; transform:scale(1); pointer-events:auto; visibility:visible;
+    transition: opacity .8s ease, transform .8s ease, visibility 0s linear 0s;
+  }
+  #window-rig{ position:absolute; inset:0; overflow:hidden; background:#000; }
+  canvas.scene-canvas{
+    position:absolute; inset:0; width:100%; height:100%; display:block;
+  }
+  #sceneB{ opacity:0; }
+
+  .glass-fx{ position:absolute; inset:0; overflow:hidden; z-index:4; }
+  .glass-reflection{
+    position:absolute; inset:-10%; pointer-events:none;
+    background:linear-gradient(115deg, transparent 22%, rgba(255,255,255,.11) 40%, rgba(255,255,255,.03) 48%, transparent 62%);
+    mix-blend-mode:screen;
+    animation: reflectionDrift 46s ease-in-out infinite alternate;
+  }
+  @keyframes reflectionDrift{ from{ transform:translate(-4%,-2%); } to{ transform:translate(4%,3%); } }
+  .glass-grime{
+    position:absolute; inset:0; pointer-events:none; opacity:.75;
+    background:
+      radial-gradient(circle at 10% 82%, rgba(255,255,255,.05), transparent 7%),
+      radial-gradient(circle at 88% 12%, rgba(255,255,255,.045), transparent 6%),
+      radial-gradient(circle at 72% 92%, rgba(0,0,0,.06), transparent 9%),
+      radial-gradient(circle at 4% 30%, rgba(255,255,255,.03), transparent 8%);
+  }
+  .rain-layer{ position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .8s ease; }
+  .rain-layer.on{ opacity:1; }
+  .drop{
+    position:absolute; top:-10%; width:3px; height:26px; border-radius:40%;
+    background:linear-gradient(rgba(255,255,255,.02), rgba(255,255,255,.35), rgba(255,255,255,.02));
+    filter:blur(.3px); animation:dropFall linear infinite;
+  }
+  @keyframes dropFall{ from{ transform:translateY(-10%); } to{ transform:translateY(115vh); } }
+
+  .vignette{
+    position:absolute; inset:0; pointer-events:none; z-index:3;
+    box-shadow: inset 0 0 9vw 2vw rgba(0,0,0,.5), inset 0 0 20vw 7vw rgba(0,0,0,.32);
+  }
+
+  .frame{ position:absolute; inset:0; pointer-events:none; z-index:5; }
+  .bar{ position:absolute; background:var(--frame-grad); }
+  .bar.top{ top:0; left:0; right:0; height:var(--frame-thick); box-shadow: inset 0 -3px 6px rgba(0,0,0,.5), inset 0 2px 3px rgba(255,255,255,.12), 0 4px 14px rgba(0,0,0,.45); }
+  .bar.left{ top:0; bottom:0; left:0; width:var(--frame-thick); box-shadow: inset -3px 0 6px rgba(0,0,0,.5), inset 2px 0 3px rgba(255,255,255,.1), 4px 0 14px rgba(0,0,0,.4); }
+  .bar.right{ top:0; bottom:0; right:0; width:var(--frame-thick); box-shadow: inset 3px 0 6px rgba(0,0,0,.5), inset -2px 0 3px rgba(255,255,255,.1), -4px 0 14px rgba(0,0,0,.4); }
+  .bar.sill{ bottom:0; left:0; right:0; height:var(--sill-thick); box-shadow: inset 0 4px 5px rgba(255,255,255,.16), inset 0 -4px 8px rgba(0,0,0,.55), 0 -6px 18px rgba(0,0,0,.4); }
+  .mullion-v{
+    position:absolute; top:var(--frame-thick); bottom:var(--sill-thick); width:var(--mullion-thick);
+    margin-left:calc(var(--mullion-thick) / -2); background:var(--frame-grad);
+    box-shadow: inset -2px 0 4px rgba(0,0,0,.45), inset 2px 0 3px rgba(255,255,255,.12), 0 0 10px rgba(0,0,0,.3);
+  }
+  .mullion-v.v1{ left:33.333%; }
+  .mullion-v.v2{ left:66.666%; }
+  .mullion-h{
+    position:absolute; left:var(--frame-thick); right:var(--frame-thick); top:50%; height:var(--mullion-thick);
+    margin-top:calc(var(--mullion-thick) / -2); background:var(--frame-grad);
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.12), 0 0 10px rgba(0,0,0,.3);
+  }
+
+  /* ---------- UI ---------- */
+  .ui-layer{ position:absolute; inset:0; z-index:10; pointer-events:none; }
+  .ui-layer > *{ pointer-events:auto; }
+  .ui-top{
+    position:absolute; top:calc(10px + var(--safe-t)); left:calc(10px + var(--safe-l)); right:calc(10px + var(--safe-r));
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .ui-btn{
+    background:var(--ui-bg); color:var(--ui-fg); border:1px solid rgba(255,255,255,.18);
+    border-radius:999px; padding:8px 14px; font-size:13px; cursor:pointer;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    display:flex; align-items:center; gap:6px; transition: background .2s ease, transform .2s ease;
+  }
+  .ui-btn:hover{ background:rgba(30,32,40,.7); }
+  .ui-btn:active{ transform:scale(.96); }
+  .ui-btn[aria-pressed="true"]{ border-color: var(--ui-accent); color: var(--ui-accent); }
+  .ui-btn:focus-visible{ outline:2px solid var(--ui-accent); outline-offset:2px; }
+
+  .back-group{ display:flex; align-items:center; gap:10px; }
+  .city-title{ font-size:14px; font-weight:600; text-shadow:0 1px 4px rgba(0,0,0,.6); }
+
+  .city-switcher{ display:flex; gap:6px; background:var(--ui-bg); padding:6px; border-radius:999px; border:1px solid rgba(255,255,255,.14); backdrop-filter:blur(6px); }
+  .dot-btn{
+    width:30px; height:30px; border-radius:50%; border:1px solid rgba(255,255,255,.25);
+    background:rgba(255,255,255,.06); color:#e8e8e8; font-size:11px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-weight:700;
+  }
+  .dot-btn[aria-current="true"]{ background:var(--ui-accent); color:#241a08; border-color:var(--ui-accent); }
+  .dot-btn:focus-visible{ outline:2px solid var(--ui-accent); outline-offset:2px; }
+
+  .ui-bottom{
+    position:absolute; bottom:calc(10px + var(--safe-b)); left:calc(10px + var(--safe-l)); right:calc(10px + var(--safe-r));
+    display:flex; align-items:flex-end; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .caption-panel{
+    background:var(--ui-bg); border:1px solid rgba(255,255,255,.18); border-radius:12px;
+    padding:8px 12px; max-width:min(360px,60vw); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .caption-panel summary{ cursor:pointer; font-size:13px; font-weight:600; list-style:none; display:flex; align-items:center; gap:6px; }
+  .caption-panel summary::-webkit-details-marker{ display:none; }
+  .caption-panel summary::before{ content:"▸"; transition:transform .2s ease; display:inline-block; }
+  .caption-panel[open] summary::before{ transform:rotate(90deg); }
+  .caption-panel p{ margin:8px 0 2px; font-size:12.5px; line-height:1.5; color:#dfe3ea; }
+
+  .control-cluster{
+    display:flex; align-items:center; gap:8px; background:var(--ui-bg);
+    border:1px solid rgba(255,255,255,.18); border-radius:999px; padding:8px 12px;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); flex-wrap:wrap;
+  }
+  .clock{ font-variant-numeric: tabular-nums; font-size:13px; min-width:52px; text-align:center; }
+  input[type="range"]{
+    -webkit-appearance:none; appearance:none; width:80px; height:4px; border-radius:2px;
+    background:rgba(255,255,255,.25); outline-offset:4px;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--ui-accent); cursor:pointer; border:none;
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background:var(--ui-accent); cursor:pointer; border:none;
+  }
+  .motion-btn{ display:none; }
+  .motion-btn.show{ display:flex; }
+
+  @media (max-width: 640px){
+    .control-cluster{ padding:6px 10px; gap:6px; }
+    input[type="range"]{ width:56px; }
+    .ui-btn{ padding:7px 10px; font-size:12px; }
+    .caption-panel{ max-width:80vw; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .glass-reflection{ animation:none; }
+    .drop{ animation-duration: 3s !important; }
+    #landing, #experience, .city-card, .rain-layer{ transition-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= Landing ================= -->
+<main id="landing">
+  <div class="landing-header">
+    <h1>City Windows</h1>
+    <p>Step up to a window in five cities around the world. Pick one to begin — sound starts after you choose.</p>
+  </div>
+  <div class="city-strip" id="citySelector" role="list"></div>
+</main>
+
+<!-- ================= Window experience ================= -->
+<section id="experience" aria-label="Window view experience">
+  <div id="window-rig" role="img" aria-label="">
+    <canvas id="sceneA" class="scene-canvas" aria-hidden="true"></canvas>
+    <canvas id="sceneB" class="scene-canvas" aria-hidden="true"></canvas>
+    <div class="glass-fx" aria-hidden="true">
+      <div class="glass-reflection"></div>
+      <div class="glass-grime"></div>
+      <div class="rain-layer" id="rainLayer"></div>
+    </div>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="frame" aria-hidden="true">
+      <div class="bar top"></div>
+      <div class="bar left"></div>
+      <div class="bar right"></div>
+      <div class="bar sill"></div>
+      <div class="mullion-v v1"></div>
+      <div class="mullion-v v2"></div>
+      <div class="mullion-h"></div>
+    </div>
+  </div>
+
+  <div class="ui-layer">
+    <div class="ui-top">
+      <div class="back-group">
+        <button class="ui-btn" id="backBtn" aria-label="Back to city selection">&larr; Back</button>
+        <span class="city-title" id="cityTitle" aria-live="polite"></span>
+      </div>
+      <div class="city-switcher" id="citySwitcher" role="group" aria-label="Switch city"></div>
+    </div>
+
+    <div class="ui-bottom">
+      <details class="caption-panel" id="captionPanel">
+        <summary>Soundscape</summary>
+        <p id="soundscapeDesc"></p>
+      </details>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+        <button class="ui-btn motion-btn" id="motionBtn">Enable motion tilt</button>
+        <div class="control-cluster">
+          <button class="ui-btn" id="dayNightBtn" style="padding:6px 10px;" aria-label="Toggle day/night mode">Auto</button>
+          <button class="ui-btn" id="rainBtn" style="padding:6px 10px;" aria-pressed="false" aria-label="Toggle light rain">&#127783;</button>
+          <span class="clock" id="clockDisplay" aria-label="Local time in this city">--:--</span>
+        </div>
+        <div class="control-cluster">
+          <button class="ui-btn" id="muteBtn" style="padding:6px 10px;" aria-pressed="false" aria-label="Mute sound">&#128266;</button>
+          <input type="range" id="volumeSlider" min="0" max="100" value="70" aria-label="Volume">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="liveRegion" class="sr-only" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   Utilities
+   ============================================================ */
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const clamp = (v,a,b)=> Math.max(a, Math.min(b,v));
+const lerp = (a,b,t)=> a + (b-a)*t;
+const smoothstep = (e0,e1,x)=>{ const t = clamp((x-e0)/(e1-e0),0,1); return t*t*(3-2*t); };
+function lerpColor(c1,c2,t){
+  return [
+    Math.round(lerp(c1[0],c2[0],t)),
+    Math.round(lerp(c1[1],c2[1],t)),
+    Math.round(lerp(c1[2],c2[2],t))
+  ];
+}
+const rgb = (c)=> `rgb(${c[0]},${c[1]},${c[2]})`;
+const rgba = (c,a)=> `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ============================================================
+   City configuration
+   ============================================================ */
+const CITIES = [
+  {
+    id:'sydney', name:'Sydney', short:'Harbour lights & sea air', tz:'Australia/Sydney', seed:11,
+    landmark:'operaHouseBridge', shimmer:false,
+    palette:{
+      dayTop:[110,178,224], dayMid:[176,214,232], dayBottom:[224,238,232],
+      nightTop:[8,12,32], nightMid:[18,26,52], nightBottom:[30,38,58],
+      sun:[255,244,196], moon:[214,222,236]
+    },
+    description:"Harbour water lapping against the sandstone, distant gulls wheeling overhead, a ferry horn sounding across the bay, and a light salt breeze.",
+    audio:{
+      continuous:[
+        {type:'water', freq:520, q:0.9, gain:0.22, ampLfoRate:0.18, ampLfoDepth:0.4},
+        {type:'wind', freq:900, q:0.5, gain:0.10}
+      ],
+      events:[
+        {fn:'gull', interval:[2600,7200], gain:0.30},
+        {fn:'ferryHorn', interval:[22000,48000], gain:0.22},
+        {fn:'distantChatter', interval:[9000,20000], gain:0.08}
+      ]
+    }
+  },
+  {
+    id:'dubai', name:'Dubai', short:'Desert heat & glass towers', tz:'Asia/Dubai', seed:22,
+    landmark:'burjSpike', shimmer:true,
+    palette:{
+      dayTop:[92,168,224], dayMid:[214,196,160], dayBottom:[244,222,180],
+      nightTop:[10,10,26], nightMid:[30,20,34], nightBottom:[54,34,30],
+      sun:[255,226,150], moon:[224,220,232]
+    },
+    description:"Low desert wind, a distant highway hum, faint far-off construction, and every so often a call to prayer drifting softly across the skyline.",
+    audio:{
+      continuous:[
+        {type:'wind', freq:700, q:0.4, gain:0.16},
+        {type:'traffic', freq:220, q:0.7, gain:0.13}
+      ],
+      events:[
+        {fn:'constructionDistant', interval:[14000,30000], gain:0.10},
+        {fn:'callToPrayer', interval:[60000,120000], gain:0.14},
+        {fn:'siren', interval:[35000,70000], gain:0.06}
+      ]
+    }
+  },
+  {
+    id:'dc', name:'Washington D.C.', short:'Monuments & motorcades', tz:'America/New_York', seed:33,
+    landmark:'capitolMonument', shimmer:false,
+    palette:{
+      dayTop:[104,158,214], dayMid:[186,206,222], dayBottom:[222,228,220],
+      nightTop:[9,12,26], nightMid:[20,24,40], nightBottom:[28,30,40],
+      sun:[255,241,205], moon:[210,218,232]
+    },
+    description:"Steady traffic below, sirens far off in the distance, birdsong in the trees, and the occasional pass of a helicopter overhead.",
+    audio:{
+      continuous:[
+        {type:'traffic', freq:260, q:0.8, gain:0.20},
+        {type:'urbanHum', freq:150, q:0.6, gain:0.08}
+      ],
+      events:[
+        {fn:'siren', interval:[16000,36000], gain:0.12},
+        {fn:'bird', interval:[3500,9000], gain:0.16},
+        {fn:'helicopter', interval:[40000,80000], gain:0.18}
+      ]
+    }
+  },
+  {
+    id:'philly', name:'Philadelphia', short:'Rowhouses & rail rumble', tz:'America/New_York', seed:44,
+    landmark:'cityHallTower', shimmer:false,
+    palette:{
+      dayTop:[118,150,196], dayMid:[190,196,206], dayBottom:[222,214,208],
+      nightTop:[12,10,24], nightMid:[26,22,38], nightBottom:[38,30,36],
+      sun:[255,234,190], moon:[216,214,228]
+    },
+    description:"A steady urban hum, the rumble of a passing train, murmurs of street chatter below, and church bells tolling in the distance.",
+    audio:{
+      continuous:[
+        {type:'urbanHum', freq:180, q:0.6, gain:0.16},
+        {type:'wind', freq:650, q:0.5, gain:0.06}
+      ],
+      events:[
+        {fn:'trainRumble', interval:[20000,42000], gain:0.20},
+        {fn:'distantChatter', interval:[7000,16000], gain:0.10},
+        {fn:'churchBells', interval:[50000,95000], gain:0.20}
+      ]
+    }
+  },
+  {
+    id:'karachi', name:'Karachi', short:'Bustle & sea breeze', tz:'Asia/Karachi', seed:55,
+    landmark:'karachiSkyline', shimmer:false,
+    palette:{
+      dayTop:[112,164,206], dayMid:[210,196,168], dayBottom:[236,214,176],
+      nightTop:[10,10,24], nightMid:[28,22,32], nightBottom:[46,32,30],
+      sun:[255,220,150], moon:[220,218,230]
+    },
+    description:"Dense street bustle, rickshaw and motorbike horns weaving through traffic, crows calling overhead, a vendor's cry, and a sea breeze drifting in from Clifton.",
+    audio:{
+      continuous:[
+        {type:'urbanHum', freq:210, q:0.7, gain:0.22},
+        {type:'wind', freq:800, q:0.4, gain:0.07}
+      ],
+      events:[
+        {fn:'rickshawHorn', interval:[3000,8000], gain:0.20},
+        {fn:'crow', interval:[5000,12000], gain:0.16},
+        {fn:'vendorCall', interval:[11000,24000], gain:0.10}
+      ]
+    }
+  }
+];
+
+/* ============================================================
+   Landmark silhouettes (drawn once into offscreen layers)
+   ============================================================ */
+const LANDMARKS = {
+  operaHouseBridge(ctx,x,groundY,scale,color){
+    ctx.fillStyle = color;
+    const shells = [ [0,1.0,0.9], [0.35,0.8,0.72], [0.65,0.62,0.55], [0.9,0.42,0.4] ];
+    shells.forEach(([dx,h,w])=>{
+      const sx = x + dx*70*scale;
+      const sw = w*60*scale, sh = h*46*scale;
+      ctx.beginPath();
+      ctx.moveTo(sx, groundY);
+      ctx.quadraticCurveTo(sx + sw*0.15, groundY - sh*0.5, sx + sw*0.55, groundY - sh);
+      ctx.quadraticCurveTo(sx + sw*0.78, groundY - sh*0.55, sx + sw, groundY);
+      ctx.closePath();
+      ctx.fill();
+    });
+    const bx = x + 150*scale, r = 110*scale;
+    ctx.beginPath();
+    ctx.arc(bx, groundY + r*0.28, r, Math.PI*1.12, Math.PI*1.88);
+    ctx.lineWidth = 5*scale; ctx.strokeStyle = color; ctx.stroke();
+    for(let i=0;i<6;i++){
+      const t = i/5, px = bx - r*0.85 + t*r*1.7;
+      ctx.beginPath(); ctx.moveTo(px, groundY - r*0.3*Math.sin(Math.acos(clamp((px-bx)/r,-1,1))));
+      ctx.lineTo(px, groundY);
+      ctx.lineWidth = 2*scale; ctx.stroke();
+    }
+  },
+  burjSpike(ctx,x,groundY,scale,color){
+    ctx.fillStyle = color;
+    const tiers = [ [0,120,34], [30,190,26], [55,260,18], [72,320,10] ];
+    tiers.forEach(([dx,h,w])=>{
+      ctx.fillRect(x+dx*scale - w*scale/2, groundY - h*scale, w*scale, h*scale);
+    });
+    ctx.beginPath();
+    ctx.moveTo(x+72*scale, groundY-320*scale);
+    ctx.lineTo(x+72*scale, groundY-390*scale);
+    ctx.lineWidth = 2.5*scale; ctx.strokeStyle = color; ctx.stroke();
+    ctx.fillRect(x-90*scale, groundY-150*scale, 34*scale, 150*scale);
+    ctx.fillRect(x-40*scale, groundY-190*scale, 30*scale, 190*scale);
+    ctx.fillRect(x+130*scale, groundY-170*scale, 32*scale, 170*scale);
+  },
+  capitolMonument(ctx,x,groundY,scale,color){
+    ctx.fillStyle = color;
+    const dw=90*scale, dh=60*scale;
+    ctx.fillRect(x - dw/2, groundY - dh, dw, dh);
+    ctx.beginPath();
+    ctx.ellipse(x, groundY - dh, dw*0.5, dh*0.75, 0, Math.PI, 0, false);
+    ctx.fill();
+    ctx.fillRect(x-3*scale, groundY-dh-dh*0.75-14*scale, 6*scale, 14*scale);
+    const ox = x + 220*scale, ow = 16*scale, oh = 260*scale;
+    ctx.beginPath();
+    ctx.moveTo(ox-ow/2, groundY);
+    ctx.lineTo(ox-ow/2, groundY-oh);
+    ctx.lineTo(ox, groundY-oh-22*scale);
+    ctx.lineTo(ox+ow/2, groundY-oh);
+    ctx.lineTo(ox+ow/2, groundY);
+    ctx.closePath(); ctx.fill();
+  },
+  cityHallTower(ctx,x,groundY,scale,color){
+    ctx.fillStyle = color;
+    const tw=54*scale, th=230*scale;
+    ctx.fillRect(x-tw/2, groundY-th, tw, th);
+    ctx.fillRect(x-tw*0.36, groundY-th-26*scale, tw*0.72, 26*scale);
+    ctx.beginPath();
+    ctx.arc(x, groundY-th-4*scale, 11*scale, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.strokeStyle = color; ctx.lineWidth=2.5*scale; ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.fillRect(x-1.5*scale, groundY-th-26*scale-30*scale, 3*scale, 30*scale);
+    for(let i=0;i<5;i++){
+      const rx = x - 180*scale + i*70*scale + (i%2?10*scale:0);
+      const rh = (60+((i*37)%40))*scale;
+      ctx.beginPath();
+      ctx.moveTo(rx, groundY); ctx.lineTo(rx, groundY-rh);
+      ctx.lineTo(rx+18*scale, groundY-rh-14*scale); ctx.lineTo(rx+36*scale, groundY-rh);
+      ctx.lineTo(rx+36*scale, groundY); ctx.closePath(); ctx.fill();
+    }
+  },
+  karachiSkyline(ctx,x,groundY,scale,color){
+    ctx.fillStyle = color;
+    [ [0,150,14], [40,190,12] ].forEach(([dx,h,w])=>{
+      const mx = x+dx*scale;
+      ctx.beginPath();
+      ctx.moveTo(mx-w*scale/2, groundY);
+      ctx.lineTo(mx-w*scale/2, groundY-h*scale);
+      ctx.quadraticCurveTo(mx, groundY-h*scale-24*scale, mx+w*scale/2, groundY-h*scale);
+      ctx.lineTo(mx+w*scale/2, groundY);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx, groundY-h*scale-24*scale, 5*scale,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(mx,groundY-h*scale-24*scale-4*scale); ctx.lineTo(mx,groundY-h*scale-46*scale);
+      ctx.lineWidth=1.5*scale; ctx.strokeStyle=color; ctx.stroke();
+    });
+    const lx = x+130*scale, lh=210*scale, lw=40*scale;
+    ctx.beginPath();
+    ctx.moveTo(lx-lw/2, groundY); ctx.lineTo(lx-lw*0.08, groundY-lh); ctx.lineTo(lx+lw*0.08, groundY-lh); ctx.lineTo(lx+lw/2, groundY);
+    ctx.lineWidth=2*scale; ctx.strokeStyle=color; ctx.stroke();
+    for(let i=1;i<5;i++){
+      const t=i/5, yy=groundY-lh*t;
+      const lxw = lerp(lw/2, lw*0.08, t);
+      ctx.beginPath(); ctx.moveTo(lx-lxw, yy); ctx.lineTo(lx+lxw, yy); ctx.stroke();
+    }
+  }
+};
+
+/* ============================================================
+   Scene state + procedural skyline generation
+   ============================================================ */
+function genBuildings(rng, xFrom, xTo, minH, maxH, minW, maxW, groundFrac){
+  const list = [];
+  let x = xFrom;
+  while(x < xTo){
+    const w = minW + rng()*(maxW-minW);
+    const h = minH + rng()*(maxH-minH);
+    list.push({ x, w, h, seed: rng() });
+    x += w - (1 + rng()*4);
+  }
+  return list;
+}
+
+function buildWindows(rng, b){
+  const cols = Math.max(2, Math.floor(b.w/9));
+  const rows = Math.max(3, Math.floor(b.h/11));
+  const wins = [];
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(rng() < 0.42){
+        wins.push({
+          cx: c/(cols-1||1), cy: r/(rows-1||1),
+          lit: rng() < 0.55,
+          phase: rng()*Math.PI*2,
+          flickerAmt: rng()*0.35
+        });
+      }
+    }
+  }
+  return wins;
+}
+
+function createSceneState(cityIndex, layerW, layerH){
+  const city = CITIES[cityIndex];
+  const rng = mulberry32(city.seed);
+  const groundY = layerH * 0.82;
+
+  const far = genBuildings(rng, -60, layerW+60, layerH*0.10, layerH*0.22, 30, 60, groundY);
+  const mid = genBuildings(rng, -60, layerW+60, layerH*0.16, layerH*0.34, 26, 54, groundY);
+  const near = genBuildings(rng, -60, layerW+60, layerH*0.22, layerH*0.46, 40, 90, groundY);
+  near.forEach(b=>{ b.windows = buildWindows(rng, b); });
+
+  const clouds = [];
+  const cloudCount = 5;
+  for(let i=0;i<cloudCount;i++){
+    clouds.push({
+      x: rng()*layerW, y: layerH*(0.06+rng()*0.28),
+      w: layerW*(0.14+rng()*0.16), h: layerH*(0.03+rng()*0.035),
+      speed: 3 + rng()*5, alpha: 0.35+rng()*0.35
+    });
+  }
+
+  return {
+    cityIndex, rng, groundY,
+    far, mid, near, clouds,
+    birds: [],
+    nextBirdAt: performance.now() + 1500 + Math.random()*4000,
+    parallaxX: 0, parallaxY: 0,
+    dayFactor: 0.5,
+    dayFactorTarget: 0.5,
+    layerW, layerH,
+    farImg: null, midImg: null,
+    time: 0
+  };
+}
+
+function renderStaticLayer(city, buildings, groundY, w, h, includeLandmark){
+  const off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  const c = off.getContext('2d');
+  const color = 'rgba(10,14,22,1)';
+  c.fillStyle = color;
+  buildings.forEach(b=>{
+    c.fillRect(b.x, groundY - b.h, b.w, b.h);
+  });
+  if(includeLandmark){
+    const cx = w*0.42;
+    LANDMARKS[city.landmark](c, cx, groundY, Math.min(w,h)/900, color);
+  }
+  return off;
+}
+
+/* ============================================================
+   Rendering
+   ============================================================ */
+function skyColorAt(palette, dayFactor, t){
+  const top = lerpColor(palette.nightTop, palette.dayTop, dayFactor);
+  const mid = lerpColor(palette.nightMid, palette.dayMid, dayFactor);
+  const bot = lerpColor(palette.nightBottom, palette.dayBottom, dayFactor);
+  return {top,mid,bot};
+}
+
+function drawSky(ctx, w, h, palette, dayFactor){
+  const {top,mid,bot} = skyColorAt(palette, dayFactor);
+  const g = ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0, rgb(top));
+  g.addColorStop(0.55, rgb(mid));
+  g.addColorStop(1, rgb(bot));
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,w,h);
+}
+
+function drawSunMoon(ctx, w, h, palette, dayFactor, timeFrac){
+  const isDay = dayFactor > 0.5;
+  const arcT = (timeFrac % 1);
+  const x = w * arcT;
+  const y = h*0.62 - Math.sin(arcT*Math.PI) * h*0.5;
+  const color = isDay ? palette.sun : palette.moon;
+  const alpha = isDay ? dayFactor : (1-dayFactor);
+  if(alpha < 0.05) return;
+  const glow = ctx.createRadialGradient(x,y,0,x,y,70);
+  glow.addColorStop(0, rgba(color, 0.9*alpha));
+  glow.addColorStop(0.3, rgba(color, 0.35*alpha));
+  glow.addColorStop(1, rgba(color, 0));
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(x,y,70,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = rgba(color, alpha);
+  ctx.beginPath(); ctx.arc(x,y, isDay?16:12, 0, Math.PI*2); ctx.fill();
+}
+
+function drawClouds(ctx, clouds, w, h, offsetX, dayFactor, dt, paused){
+  clouds.forEach(cl=>{
+    if(!paused) cl.x += cl.speed * dt;
+    if(cl.x - cl.w > w) cl.x = -cl.w;
+    const drawX = cl.x + offsetX*0.05;
+    const tint = dayFactor > 0.4 ? 255 : 120;
+    const a = cl.alpha * (0.5 + dayFactor*0.5);
+    const g = ctx.createRadialGradient(drawX, cl.y, 0, drawX, cl.y, cl.w*0.6);
+    g.addColorStop(0, `rgba(${tint},${tint},${tint},${a})`);
+    g.addColorStop(1, `rgba(${tint},${tint},${tint},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(drawX, cl.y, cl.w*0.5, cl.h, 0, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function drawBirds(state, ctx, w, h, now, dayFactor, paused){
+  if(dayFactor < 0.25) { state.birds.length = 0; return; }
+  if(!paused && now > state.nextBirdAt && state.birds.length < 3){
+    const fromLeft = Math.random() < 0.5;
+    state.birds.push({
+      x: fromLeft ? -30 : w+30, y: h*(0.18+Math.random()*0.22),
+      vx: (fromLeft?1:-1) * (40+Math.random()*30),
+      vy: (Math.random()-0.5)*6, wing:0
+    });
+    state.nextBirdAt = now + 4000 + Math.random()*8000;
+  }
+  ctx.strokeStyle = 'rgba(20,20,26,0.6)';
+  ctx.lineWidth = 1.4;
+  for(let i=state.birds.length-1;i>=0;i--){
+    const b = state.birds[i];
+    if(!paused){
+      b.x += b.vx * (1/60); b.y += b.vy*(1/60); b.wing += 0.25;
+    }
+    const flap = Math.sin(b.wing)*5;
+    ctx.beginPath();
+    ctx.moveTo(b.x-6, b.y+flap);
+    ctx.quadraticCurveTo(b.x-2, b.y-3, b.x, b.y);
+    ctx.quadraticCurveTo(b.x+2, b.y-3, b.x+6, b.y+flap);
+    ctx.stroke();
+    if(b.x < -50 || b.x > w+50) state.birds.splice(i,1);
+  }
+}
+
+function applyHeatShimmer(ctx, canvasEl, now){
+  // Source rects for drawImage read raw device pixels, but ctx carries a
+  // dpr transform for CSS-pixel drawing elsewhere — reset it here so the
+  // slice coordinates below aren't double-scaled.
+  const dpr = canvasEl.width / canvasEl.clientWidth || 1;
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);
+  const w = canvasEl.width, h = canvasEl.height;
+  const bandTop = h*0.62;
+  const bandH = h - bandTop;
+  const sliceH = Math.max(1, Math.round(3*dpr));
+  const slices = Math.ceil(bandH/sliceH);
+  for(let i=0;i<slices;i++){
+    const y = Math.round(bandTop + i*sliceH);
+    const depth = (y-bandTop)/bandH;
+    const wobble = Math.sin(y*0.045/dpr + now*0.0022) * 3.5*dpr * depth;
+    ctx.drawImage(canvasEl, 0, y, w, sliceH, wobble, y, w, sliceH);
+  }
+  ctx.restore();
+}
+
+function drawRain(ctx, w, h, rng){
+  ctx.strokeStyle = 'rgba(200,215,230,0.18)';
+  ctx.lineWidth = 1;
+  for(let i=0;i<70;i++){
+    const x = (rng()*w + performance.now()*0.06) % w;
+    const y = (rng()*h + performance.now()*0.7) % h;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-4,y+18); ctx.stroke();
+  }
+}
+
+function drawNearLayer(ctx, near, groundY, offsetX, dayFactor, now){
+  const nightness = 1-dayFactor;
+  near.forEach(b=>{
+    const bx = b.x + offsetX;
+    ctx.fillStyle = `rgba(8,10,16,1)`;
+    ctx.fillRect(bx, groundY-b.h, b.w, b.h);
+    if(nightness > 0.15 && b.windows){
+      b.windows.forEach(win=>{
+        const baseLit = win.lit && nightness > 0.2;
+        if(!baseLit) return;
+        const flicker = 0.75 + Math.sin(now*0.001*(1+win.phase) + win.phase)*win.flickerAmt*0.5;
+        const a = clamp(nightness * flicker, 0, 1);
+        ctx.fillStyle = `rgba(255,214,140,${a.toFixed(3)})`;
+        const wx = bx + win.cx * b.w;
+        const wy = groundY - b.h + win.cy * b.h;
+        ctx.fillRect(wx, wy, 3, 4);
+      });
+    }
+  });
+}
+
+const RAIN_RNG = mulberry32(999);
+
+function renderScene(state, ctx, w, h, now, dt, opts){
+  const city = CITIES[state.cityIndex];
+  state.time += dt;
+
+  const targetDF = state.dayFactorTarget;
+  state.dayFactor = lerp(state.dayFactor, targetDF, opts.reduced ? 1 : Math.min(1, dt*1.2));
+
+  drawSky(ctx, w, h, city.palette, state.dayFactor);
+  drawSunMoon(ctx, w, h, city.palette, state.dayFactor, (state.time*0.004) % 1);
+  drawClouds(ctx, state.clouds, w, h, state.parallaxX, state.dayFactor, dt, opts.reduced);
+
+  const maxPx = 150;
+  const farOff = maxPx + state.parallaxX*0.15*maxPx;
+  const midOff = maxPx + state.parallaxX*0.4*maxPx;
+  const nearOff = state.parallaxX*0.85*maxPx;
+
+  if(state.farImg){
+    ctx.drawImage(state.farImg, clamp(farOff,0,state.farImg.width-w), 0, w, h, 0, 0, w, h);
+  }
+  if(state.midImg){
+    ctx.drawImage(state.midImg, clamp(midOff,0,state.midImg.width-w), 0, w, h, 0, 0, w, h);
+  }
+  drawNearLayer(ctx, state.near, state.groundY, nearOff, state.dayFactor, now);
+  drawBirds(state, ctx, w, h, now, state.dayFactor, opts.reduced);
+
+  if(city.shimmer && state.dayFactor > 0.35 && !opts.reduced){
+    applyHeatShimmer(ctx, ctx.canvas, now);
+  }
+
+  if(opts.rain){
+    drawRain(ctx, w, h, RAIN_RNG);
+  }
+}
+
+/* ============================================================
+   Canvas / dual-buffer setup
+   ============================================================ */
+const canvasA = document.getElementById('sceneA');
+const canvasB = document.getElementById('sceneB');
+const ctxA = canvasA.getContext('2d');
+const ctxB = canvasB.getContext('2d');
+const rig = document.getElementById('window-rig');
+
+let dpr = Math.min(window.devicePixelRatio || 1, 2);
+let viewW = 0, viewH = 0;
+
+let stateA = null, stateB = null;
+let frontIsA = true;
+let transitioning = false, transitionStart = 0, transitionDur = 1100;
+
+function buildLayers(state){
+  const city = CITIES[state.cityIndex];
+  state.farImg = renderStaticLayer(city, state.far, state.groundY, state.layerW, state.layerH, false);
+  state.midImg = renderStaticLayer(city, state.mid, state.groundY, state.layerW, state.layerH, true);
+}
+
+function sizeCanvases(){
+  viewW = rig.clientWidth; viewH = rig.clientHeight;
+  [canvasA, canvasB].forEach(cv=>{
+    cv.width = Math.round(viewW*dpr); cv.height = Math.round(viewH*dpr);
+  });
+  ctxA.setTransform(dpr,0,0,dpr,0,0);
+  ctxB.setTransform(dpr,0,0,dpr,0,0);
+
+  const layerW = Math.round(viewW + 300);
+  const layerH = viewH;
+  if(stateA){ stateA.layerW = layerW; stateA.layerH = layerH; stateA.groundY = layerH*0.82; recomputeBuildings(stateA); buildLayers(stateA); }
+  if(stateB){ stateB.layerW = layerW; stateB.layerH = layerH; stateB.groundY = layerH*0.82; recomputeBuildings(stateB); buildLayers(stateB); }
+}
+
+function recomputeBuildings(state){
+  const fresh = createSceneState(state.cityIndex, state.layerW, state.layerH);
+  state.far = fresh.far; state.mid = fresh.mid; state.near = fresh.near;
+  state.groundY = fresh.groundY; state.clouds = fresh.clouds.length===state.clouds.length? state.clouds : fresh.clouds;
+}
+
+/* ============================================================
+   Day/night + clock
+   ============================================================ */
+function getCityHourFraction(tz){
+  try{
+    const parts = new Intl.DateTimeFormat('en-US',{ timeZone:tz, hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(new Date());
+    const h = +parts.find(p=>p.type==='hour').value;
+    const m = +parts.find(p=>p.type==='minute').value;
+    return (h===24?0:h) + m/60;
+  }catch(e){ return new Date().getHours() + new Date().getMinutes()/60; }
+}
+function autoDayFactor(hourFrac){
+  const sunrise=6, sunset=18.5, tr=1.5;
+  if(hourFrac < sunrise-tr || hourFrac > sunset+tr) return 0;
+  if(hourFrac < sunrise+tr) return smoothstep(sunrise-tr, sunrise+tr, hourFrac);
+  if(hourFrac > sunset-tr) return 1-smoothstep(sunset-tr, sunset+tr, hourFrac);
+  return 1;
+}
+
+/* ============================================================
+   Audio engine
+   ============================================================ */
+const AudioEngine = (function(){
+  let ctx = null, master = null;
+  let volume = 0.7, muted = false;
+  let currentBus = null;
+  let noiseBufferCache = null;
+
+  function ensureContext(){
+    if(!ctx){
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain();
+      master.gain.value = volume;
+      master.connect(ctx.destination);
+    }
+    if(ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function getNoiseBuffer(){
+    if(noiseBufferCache) return noiseBufferCache;
+    const len = ctx.sampleRate * 4;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0;i<len;i++) data[i] = Math.random()*2-1;
+    noiseBufferCache = buf;
+    return buf;
+  }
+
+  function makeBus(){
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = 0;
+    gainNode.connect(master);
+    return { gainNode, timers:[], sources:[], active:true };
+  }
+
+  function disposeBus(bus, after){
+    setTimeout(()=>{
+      bus.active = false;
+      bus.timers.forEach(id=>clearTimeout(id));
+      bus.sources.forEach(s=>{ try{ s.stop(); }catch(e){} });
+      try{ bus.gainNode.disconnect(); }catch(e){}
+    }, after);
+  }
+
+  function startContinuous(bus, cfg){
+    const src = ctx.createBufferSource();
+    src.buffer = getNoiseBuffer();
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = cfg.freq < 300 ? 'lowpass' : (cfg.type==='wind'?'bandpass':'bandpass');
+    filter.frequency.value = cfg.freq;
+    filter.Q.value = cfg.q;
+    const gain = ctx.createGain();
+    gain.gain.value = cfg.gain;
+
+    src.connect(filter).connect(gain).connect(bus.gainNode);
+    src.start();
+    bus.sources.push(src);
+
+    if(cfg.ampLfoRate){
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = cfg.ampLfoRate;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = cfg.gain * cfg.ampLfoDepth;
+      lfo.connect(lfoGain).connect(gain.gain);
+      lfo.start();
+      bus.sources.push(lfo);
+    } else {
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 0.05 + Math.random()*0.05;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = cfg.freq * 0.15;
+      lfo.connect(lfoGain).connect(filter.frequency);
+      lfo.start();
+      bus.sources.push(lfo);
+    }
+  }
+
+  function scheduleEvents(bus, cfg){
+    const loop = ()=>{
+      if(!bus.active) return;
+      const delay = cfg.interval[0] + Math.random()*(cfg.interval[1]-cfg.interval[0]);
+      const id = setTimeout(()=>{
+        if(!bus.active) return;
+        const fn = SYNTH[cfg.fn];
+        if(fn) fn(ctx, bus.gainNode, {
+          gain: cfg.gain * (0.75 + Math.random()*0.5),
+          pan: (Math.random()*2-1) * 0.8
+        });
+        loop();
+      }, delay);
+      bus.timers.push(id);
+    };
+    loop();
+  }
+
+  function playCity(cityIndex){
+    ensureContext();
+    const city = CITIES[cityIndex];
+    const bus = makeBus();
+    city.audio.continuous.forEach(cfg=> startContinuous(bus, cfg));
+    city.audio.events.forEach(cfg=> scheduleEvents(bus, cfg));
+
+    const now = ctx.currentTime;
+    bus.gainNode.gain.cancelScheduledValues(now);
+    bus.gainNode.gain.setValueAtTime(bus.gainNode.gain.value, now);
+    bus.gainNode.gain.linearRampToValueAtTime(1, now+1.4);
+
+    if(currentBus){
+      const old = currentBus;
+      old.gainNode.gain.cancelScheduledValues(now);
+      old.gainNode.gain.setValueAtTime(old.gainNode.gain.value, now);
+      old.gainNode.gain.linearRampToValueAtTime(0, now+1.2);
+      disposeBus(old, 1300);
+    }
+    currentBus = bus;
+  }
+
+  function stopAll(){
+    if(currentBus){
+      const now = ctx ? ctx.currentTime : 0;
+      if(ctx){
+        currentBus.gainNode.gain.cancelScheduledValues(now);
+        currentBus.gainNode.gain.setValueAtTime(currentBus.gainNode.gain.value, now);
+        currentBus.gainNode.gain.linearRampToValueAtTime(0, now+1.0);
+      }
+      disposeBus(currentBus, 1100);
+      currentBus = null;
+    }
+  }
+
+  function setVolume(v){
+    volume = v;
+    if(!muted && master) master.gain.setTargetAtTime(v, ctx.currentTime, 0.05);
+  }
+  function setMuted(m){
+    muted = m;
+    if(master) master.gain.setTargetAtTime(m?0:volume, ctx.currentTime, 0.05);
+  }
+  function isReady(){ return !!ctx; }
+
+  return { ensureContext, playCity, stopAll, setVolume, setMuted, isReady };
+})();
+
+/* ---- synth voices ---- */
+function envGain(ctx, dest, attack, decay, peak, startAt){
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, startAt);
+  g.gain.linearRampToValueAtTime(peak, startAt+attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, startAt+attack+decay);
+  g.connect(dest);
+  return g;
+}
+function panNode(ctx, dest, pan){
+  if(ctx.createStereoPanner){
+    const p = ctx.createStereoPanner();
+    p.pan.value = clamp(pan,-1,1);
+    p.connect(dest);
+    return p;
+  }
+  return dest;
+}
+
+const SYNTH = {
+  gull(ctx, dest, {gain=0.3, pan=0}){
+    const t0 = ctx.currentTime;
+    const pn = panNode(ctx, dest, pan);
+    const g = envGain(ctx, pn, 0.05, 0.5, gain, t0);
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1400, t0);
+    osc.frequency.exponentialRampToValueAtTime(2200, t0+0.15);
+    osc.frequency.exponentialRampToValueAtTime(900, t0+0.5);
+    osc.connect(g);
+    osc.start(t0); osc.stop(t0+0.6);
+  },
+  bird(ctx, dest, {gain=0.2, pan=0}){
+    const t0 = ctx.currentTime;
+    const pn = panNode(ctx, dest, pan);
+    for(let i=0;i<3;i++){
+      const st = t0 + i*0.12;
+      const g = envGain(ctx, pn, 0.01, 0.12, gain*(0.7+Math.random()*0.5), st);
+      const osc = ctx.createOscillator();
+      osc.type='sine';
+      const f = 2200+Math.random()*1200;
+      osc.frequency.setValueAtTime(f, st);
+      osc.frequency.exponentialRampToValueAtTime(f*1.4, st+0.08);
+      osc.connect(g);
+      osc.start(st); osc.stop(st+0.15);
+    }
+  },
+  crow(ctx, dest, {gain=0.25, pan=0}){
+    const t0 = ctx.currentTime;
+    const pn = panNode(ctx, dest, pan);
+    const src = ctx.createBufferSource();
+    const len = ctx.sampleRate*0.35;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type='bandpass'; filter.frequency.value=900; filter.Q.value=3;
+    const g = envGain(ctx, filter, 0.02, 0.3, gain, t0);
+    src.connect(g); filter.connect(pn);
+    src.start(t0); src.stop(t0+0.4);
+  },
+  ferryHorn(ctx, dest, {gain=0.2, pan=0}){
+    const t0 = ctx.currentTime;
+    const pn = panNode(ctx, dest, pan);
+    const g = envGain(ctx, pn, 0.3, 1.8, gain, t0);
+    const osc = ctx.createOscillator();
+    osc.type='sawtooth'; osc.frequency.value = 110;
+    const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=300;
+    osc.connect(lp).connect(g);
+    osc.start(t0); osc.stop(t0+2.2);
+  },
+  siren(ctx, dest, {gain=0.12, pan=0}){
+    const t0 = ctx.currentTime, dur=3.5;
+    const pn = panNode(ctx, dest, pan);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(gain, t0+0.5);
+    g.gain.linearRampToValueAtTime(0, t0+dur);
+    g.connect(pn);
+    const osc = ctx.createOscillator(); osc.type='sine';
+    osc.frequency.setValueAtTime(600, t0);
+    for(let i=0;i<dur;i+=0.8){
+      osc.frequency.linearRampToValueAtTime(900, t0+i+0.4);
+      osc.frequency.linearRampToValueAtTime(600, t0+i+0.8);
+    }
+    const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1400;
+    osc.connect(lp).connect(g);
+    osc.start(t0); osc.stop(t0+dur);
+  },
+  helicopter(ctx, dest, {gain=0.15}){
+    const t0 = ctx.currentTime, dur=6;
+    const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : dest;
+    if(pn.connect) pn.connect(dest);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(gain, t0+1.5);
+    g.gain.linearRampToValueAtTime(0, t0+dur);
+    g.connect(pn);
+    const osc = ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=90;
+    const lfo = ctx.createOscillator(); lfo.frequency.value=11;
+    const lfoGain = ctx.createGain(); lfoGain.gain.value=0.6;
+    const modGain = ctx.createGain(); modGain.gain.value=0.4;
+    lfo.connect(lfoGain).connect(modGain.gain);
+    osc.connect(modGain).connect(g);
+    lfo.start(t0); osc.start(t0);
+    lfo.stop(t0+dur); osc.stop(t0+dur);
+    if(pn.pan){
+      pn.pan.setValueAtTime(-1, t0);
+      pn.pan.linearRampToValueAtTime(1, t0+dur);
+    }
+  },
+  constructionDistant(ctx, dest, {gain=0.1, pan=0}){
+    const t0 = ctx.currentTime;
+    const pn = panNode(ctx, dest, pan);
+    const g = envGain(ctx, pn, 0.02, 0.25, gain, t0);
+    const osc = ctx.createOscillator(); osc.type='square'; osc.frequency.value=140;
+    const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=500;
+    osc.connect(lp).connect(g);
+    osc.start(t0); osc.stop(t0+0.3);
+  },
+  callToPrayer(ctx, dest, {gain=0.12}){
+    const t0 = ctx.currentTime, dur=9;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(gain, t0+2.5);
+    g.gain.linearRampToValueAtTime(gain*0.7, t0+dur*0.6);
+    g.gain.linearRampToValueAtTime(0, t0+dur);
+    g.connect(dest);
+    const freqs=[196,246.9,293.7];
+    freqs.forEach((f,i)=>{
+      const osc = ctx.createOscillator(); osc.type='sine'; osc.frequency.value=f;
+      const vib = ctx.createOscillator(); vib.frequency.value=4.5+i*0.3;
+      const vibGain = ctx.createGain(); vibGain.gain.value=2.5;
+      vib.connect(vibGain).connect(osc.frequency);
+      const og = ctx.createGain(); og.gain.value = 0.35/(i+1);
+      osc.connect(og).connect(g);
+      vib.start(t0); osc.start(t0);
+      vib.stop(t0+dur); osc.stop(t0+dur);
+    });
+  },
+  trainRumble(ctx, dest, {gain=0.2, pan=0}){
+    const t0 = ctx.currentTime, dur=4.5;
+    const pn = panNode(ctx, dest, pan);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(gain, t0+1.2);
+    g.gain.linearRampToValueAtTime(0, t0+dur);
+    g.connect(pn);
+    const src = ctx.createBufferSource();
+    const len = ctx.sampleRate*dur;
+    const buf = ctx.createBuffer(1,len,ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+    src.buffer=buf;
+    const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=220;
+    src.connect(lp).connect(g);
+    src.start(t0); src.stop(t0+dur);
+  },
+  churchBells(ctx, dest, {gain=0.2, pan=0}){
+    const pn = panNode(ctx, dest, pan);
+    const ring = (delay)=>{
+      const t0 = ctx.currentTime+delay;
+      [1,2.42,3.86,5.4].forEach((ratio,i)=>{
+        const osc = ctx.createOscillator(); osc.type='sine'; osc.frequency.value=420*ratio;
+        const g = ctx.createGain(); g.gain.setValueAtTime(0,t0);
+        g.gain.linearRampToValueAtTime(gain/(i+1), t0+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0+2.2);
+        osc.connect(g).connect(pn);
+        osc.start(t0); osc.stop(t0+2.3);
+      });
+    };
+    for(let i=0;i<4;i++) ring(i*0.9);
+  },
+  rickshawHorn(ctx, dest, {gain=0.22, pan=0}){
+    const t0 = ctx.currentTime;
+    const pn = panNode(ctx, dest, pan);
+    const g = envGain(ctx, pn, 0.01, 0.18, gain, t0);
+    const osc = ctx.createOscillator(); osc.type='square'; osc.frequency.value=520+Math.random()*80;
+    osc.connect(g);
+    osc.start(t0); osc.stop(t0+0.22);
+    const t1 = t0+0.28;
+    const g2 = envGain(ctx, pn, 0.01, 0.18, gain*0.8, t1);
+    const osc2 = ctx.createOscillator(); osc2.type='square'; osc2.frequency.value=520+Math.random()*80;
+    osc2.connect(g2);
+    osc2.start(t1); osc2.stop(t1+0.22);
+  },
+  vendorCall(ctx, dest, {gain=0.1, pan=0}){
+    const t0 = ctx.currentTime, dur=1.4;
+    const pn = panNode(ctx, dest, pan);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(gain, t0+0.3);
+    g.gain.linearRampToValueAtTime(0, t0+dur);
+    g.connect(pn);
+    const osc = ctx.createOscillator(); osc.type='sawtooth';
+    osc.frequency.setValueAtTime(320, t0);
+    osc.frequency.linearRampToValueAtTime(420, t0+dur*0.5);
+    osc.frequency.linearRampToValueAtTime(280, t0+dur);
+    const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=900;
+    osc.connect(lp).connect(g);
+    osc.start(t0); osc.stop(t0+dur);
+  },
+  distantChatter(ctx, dest, {gain=0.08, pan=0}){
+    const t0 = ctx.currentTime, dur=1.8;
+    const pn = panNode(ctx, dest, pan);
+    const src = ctx.createBufferSource();
+    const len = ctx.sampleRate*dur;
+    const buf = ctx.createBuffer(1,len,ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+    src.buffer=buf;
+    const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1200; bp.Q.value=0.8;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(gain, t0+0.3);
+    g.gain.linearRampToValueAtTime(0, t0+dur);
+    src.connect(bp).connect(g).connect(pn);
+    src.start(t0); src.stop(t0+dur);
+  }
+};
+
+/* ============================================================
+   App controller
+   ============================================================ */
+const landing = document.getElementById('landing');
+const experience = document.getElementById('experience');
+const citySelector = document.getElementById('citySelector');
+const citySwitcher = document.getElementById('citySwitcher');
+const cityTitle = document.getElementById('cityTitle');
+const backBtn = document.getElementById('backBtn');
+const dayNightBtn = document.getElementById('dayNightBtn');
+const rainBtn = document.getElementById('rainBtn');
+const muteBtn = document.getElementById('muteBtn');
+const volumeSlider = document.getElementById('volumeSlider');
+const clockDisplay = document.getElementById('clockDisplay');
+const rainLayerEl = document.getElementById('rainLayer');
+const soundscapeDesc = document.getElementById('soundscapeDesc');
+const motionBtn = document.getElementById('motionBtn');
+const windowRig = document.getElementById('window-rig');
+const liveRegion = document.getElementById('liveRegion');
+
+let currentCity = 0;
+let dayNightMode = 'auto'; // 'auto' | 'day' | 'night'
+let rainOn = false;
+let inExperience = false;
+
+let parallaxTargetX = 0, parallaxTargetY = 0;
+let smoothParallaxX = 0, smoothParallaxY = 0;
+
+/* --- Landing cards --- */
+function buildLandingCards(){
+  CITIES.forEach((city, i)=>{
+    const btn = document.createElement('button');
+    btn.className = 'city-card';
+    btn.setAttribute('role','listitem');
+    btn.setAttribute('aria-label', `Enter ${city.name} window view`);
+    btn.tabIndex = i===0 ? 0 : -1;
+    btn.dataset.index = i;
+
+    const teaser = document.createElement('span');
+    teaser.className = `teaser ${city.id === 'dc' ? 'dc' : (city.id==='philly'?'philly':city.id)}`;
+    teaser.setAttribute('aria-hidden','true');
+
+    const content = document.createElement('span');
+    content.className = 'card-content';
+    content.innerHTML = `<span class="card-name">${city.name}</span><span class="card-sub">${city.short}</span>`;
+
+    btn.appendChild(teaser);
+    btn.appendChild(content);
+    btn.addEventListener('click', ()=> enterCity(i));
+    btn.addEventListener('keydown', onCardKeydown);
+    citySelector.appendChild(btn);
+  });
+}
+function onCardKeydown(e){
+  const cards = Array.from(citySelector.querySelectorAll('.city-card'));
+  const idx = cards.indexOf(e.currentTarget);
+  if(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'){
+    e.preventDefault();
+    enterCity(idx);
+    return;
+  }
+  let next = null;
+  if(e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx+1) % cards.length;
+  else if(e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (idx-1+cards.length) % cards.length;
+  else if(e.key === 'Home') next = 0;
+  else if(e.key === 'End') next = cards.length-1;
+  if(next !== null){
+    e.preventDefault();
+    cards.forEach(c=> c.tabIndex = -1);
+    cards[next].tabIndex = 0;
+    cards[next].focus();
+  }
+}
+
+/* --- Switcher --- */
+function buildSwitcher(){
+  citySwitcher.innerHTML = '';
+  CITIES.forEach((city,i)=>{
+    const b = document.createElement('button');
+    b.className = 'dot-btn';
+    b.textContent = city.name[0];
+    b.setAttribute('aria-label', `Switch to ${city.name}`);
+    b.setAttribute('aria-current', i===currentCity ? 'true':'false');
+    b.addEventListener('click', ()=>{
+      if(i !== currentCity) switchCity(i);
+    });
+    citySwitcher.appendChild(b);
+  });
+}
+function updateSwitcher(){
+  citySwitcher.querySelectorAll('.dot-btn').forEach((b,i)=>{
+    b.setAttribute('aria-current', i===currentCity ? 'true':'false');
+  });
+}
+
+/* --- Enter / switch / back --- */
+function enterCity(index){
+  currentCity = index;
+  AudioEngine.ensureContext();
+  AudioEngine.playCity(index);
+
+  landing.classList.add('hidden');
+  experience.classList.add('visible');
+  inExperience = true;
+
+  sizeCanvases();
+  stateA = createSceneState(index, viewW+300, viewH);
+  buildLayers(stateA);
+  stateB = createSceneState(index, viewW+300, viewH);
+  frontIsA = true;
+  canvasA.style.opacity = 1; canvasB.style.opacity = 0;
+
+  applyCityUI(index);
+  buildSwitcher();
+  startLoopIfNeeded();
+  clockTick();
+}
+
+function switchCity(index){
+  if(transitioning) return;
+  currentCity = index;
+  AudioEngine.playCity(index);
+
+  const backState = frontIsA ? stateB : stateA;
+  Object.assign(backState, createSceneState(index, viewW+300, viewH));
+  backState.dayFactor = frontIsA ? stateA.dayFactor : stateB.dayFactor;
+  backState.dayFactorTarget = computeTargetDayFactor(index);
+  buildLayers(backState);
+
+  transitioning = true;
+  transitionStart = performance.now();
+  transitionDur = reducedMotion() ? 50 : 1100;
+
+  applyCityUI(index);
+  updateSwitcher();
+}
+
+function goBack(){
+  AudioEngine.stopAll();
+  experience.classList.remove('visible');
+  landing.classList.remove('hidden');
+  inExperience = false;
+  const firstCard = citySelector.querySelector('.city-card');
+  if(firstCard) firstCard.focus();
+}
+
+function applyCityUI(index){
+  const city = CITIES[index];
+  cityTitle.textContent = city.name;
+  soundscapeDesc.textContent = city.description;
+  windowRig.setAttribute('aria-label', `First-person window view overlooking ${city.name}`);
+  announce(`${city.name} window selected.`);
+}
+
+function announce(msg){ liveRegion.textContent = msg; }
+
+/* --- day/night --- */
+function computeTargetDayFactor(index){
+  const city = CITIES[index];
+  if(dayNightMode === 'day') return 1;
+  if(dayNightMode === 'night') return 0;
+  return autoDayFactor(getCityHourFraction(city.tz));
+}
+function refreshDayNightTargets(){
+  if(stateA) stateA.dayFactorTarget = computeTargetDayFactor(stateA.cityIndex);
+  if(stateB) stateB.dayFactorTarget = computeTargetDayFactor(stateB.cityIndex);
+}
+dayNightBtn.addEventListener('click', ()=>{
+  dayNightMode = dayNightMode === 'auto' ? 'day' : dayNightMode === 'day' ? 'night' : 'auto';
+  dayNightBtn.textContent = dayNightMode === 'auto' ? 'Auto' : dayNightMode === 'day' ? 'Day' : 'Night';
+  dayNightBtn.setAttribute('aria-pressed', dayNightMode !== 'auto' ? 'true':'false');
+  refreshDayNightTargets();
+});
+
+/* --- rain --- */
+function buildRainDom(){
+  rainLayerEl.innerHTML = '';
+  for(let i=0;i<18;i++){
+    const d = document.createElement('div');
+    d.className = 'drop';
+    d.style.left = (Math.random()*100) + '%';
+    d.style.animationDuration = (0.6+Math.random()*0.5)+'s';
+    d.style.animationDelay = (-Math.random()*2)+'s';
+    d.style.height = (16+Math.random()*22)+'px';
+    rainLayerEl.appendChild(d);
+  }
+}
+buildRainDom();
+rainBtn.addEventListener('click', ()=>{
+  rainOn = !rainOn;
+  rainBtn.setAttribute('aria-pressed', String(rainOn));
+  rainLayerEl.classList.toggle('on', rainOn);
+});
+
+/* --- audio controls --- */
+muteBtn.addEventListener('click', ()=>{
+  const pressed = muteBtn.getAttribute('aria-pressed') === 'true';
+  const next = !pressed;
+  muteBtn.setAttribute('aria-pressed', String(next));
+  muteBtn.textContent = next ? '\u{1F507}' : '\u{1F50A}';
+  AudioEngine.setMuted(next);
+});
+volumeSlider.addEventListener('input', (e)=>{
+  AudioEngine.setVolume(clamp(+e.target.value/100, 0, 1));
+});
+
+/* --- back / nav --- */
+backBtn.addEventListener('click', goBack);
+
+/* --- clock --- */
+function clockTick(){
+  if(!inExperience) return;
+  const city = CITIES[currentCity];
+  try{
+    const str = new Intl.DateTimeFormat('en-US',{ timeZone:city.tz, hour:'2-digit', minute:'2-digit', hour12:false }).format(new Date());
+    clockDisplay.textContent = str;
+  }catch(e){ clockDisplay.textContent = '--:--'; }
+  refreshDayNightTargets();
+}
+setInterval(clockTick, 15000);
+
+/* --- pointer / touch / device orientation parallax --- */
+window.addEventListener('mousemove', (e)=>{
+  if(!inExperience || reducedMotion()) return;
+  parallaxTargetX = (e.clientX / window.innerWidth) * 2 - 1;
+  parallaxTargetY = (e.clientY / window.innerHeight) * 2 - 1;
+});
+
+let touchStartX = null, touchStartY = null;
+windowRig.addEventListener('touchstart', (e)=>{
+  if(e.touches.length){ touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; }
+}, {passive:true});
+windowRig.addEventListener('touchmove', (e)=>{
+  if(touchStartX===null || reducedMotion()) return;
+  const dx = e.touches[0].clientX - touchStartX;
+  const dy = e.touches[0].clientY - touchStartY;
+  parallaxTargetX = clamp(-dx/120, -1, 1);
+  parallaxTargetY = clamp(-dy/120, -1, 1);
+}, {passive:true});
+windowRig.addEventListener('touchend', ()=>{
+  touchStartX = null; touchStartY = null;
+  parallaxTargetX = 0; parallaxTargetY = 0;
+});
+
+let motionGranted = false;
+function needsMotionPermission(){
+  return typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
+}
+function enableOrientation(){
+  window.addEventListener('deviceorientation', (e)=>{
+    if(!inExperience || reducedMotion()) return;
+    if(e.beta==null || e.gamma==null) return;
+    parallaxTargetX = clamp(e.gamma/30, -1, 1);
+    parallaxTargetY = clamp((e.beta-45)/40, -1, 1);
+  });
+  motionGranted = true;
+  motionBtn.classList.remove('show');
+}
+if(needsMotionPermission()){
+  motionBtn.classList.add('show');
+  motionBtn.addEventListener('click', ()=>{
+    DeviceOrientationEvent.requestPermission().then(res=>{
+      if(res === 'granted') enableOrientation();
+    }).catch(()=>{});
+  });
+} else if(typeof DeviceOrientationEvent !== 'undefined'){
+  enableOrientation();
+}
+
+/* --- resize --- */
+let resizeTimer = null;
+window.addEventListener('resize', ()=>{
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(()=>{
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if(inExperience) sizeCanvases();
+  }, 150);
+});
+
+/* ============================================================
+   Main animation loop
+   ============================================================ */
+let lastTs = null;
+let loopStarted = false;
+
+function startLoopIfNeeded(){
+  if(loopStarted) return;
+  loopStarted = true;
+  requestAnimationFrame(tick);
+}
+
+function tick(ts){
+  requestAnimationFrame(tick);
+  if(!inExperience){ lastTs = ts; return; }
+  if(document.hidden){ lastTs = ts; return; }
+  const dt = lastTs ? Math.min((ts-lastTs)/1000, 0.05) : 0;
+  lastTs = ts;
+
+  const rm = reducedMotion();
+  const ease = rm ? 1 : Math.min(1, dt*5);
+  smoothParallaxX = lerp(smoothParallaxX, parallaxTargetX, ease);
+  smoothParallaxY = lerp(smoothParallaxY, parallaxTargetY, ease);
+
+  if(stateA){ stateA.parallaxX = smoothParallaxX; stateA.parallaxY = smoothParallaxY; if(stateA.dayFactorTarget===undefined) stateA.dayFactorTarget = computeTargetDayFactor(stateA.cityIndex); }
+  if(stateB){ stateB.parallaxX = smoothParallaxX; stateB.parallaxY = smoothParallaxY; }
+
+  const opts = { reduced: rm, rain: rainOn };
+
+  if(transitioning){
+    const t = clamp((performance.now()-transitionStart)/transitionDur, 0, 1);
+    const eased = t*t*(3-2*t);
+    renderScene(stateA, ctxA, viewW, viewH, ts, dt, opts);
+    renderScene(stateB, ctxB, viewW, viewH, ts, dt, opts);
+    if(frontIsA){
+      canvasA.style.opacity = 1-eased;
+      canvasB.style.opacity = eased;
+    } else {
+      canvasA.style.opacity = eased;
+      canvasB.style.opacity = 1-eased;
+    }
+    if(t >= 1){
+      transitioning = false;
+      frontIsA = !frontIsA;
+    }
+  } else {
+    const front = frontIsA ? stateA : stateB;
+    const frontCtx = frontIsA ? ctxA : ctxB;
+    if(front) renderScene(front, frontCtx, viewW, viewH, ts, dt, opts);
+  }
+}
+
+/* ============================================================
+   Init
+   ============================================================ */
+buildLandingCards();
+
+})();
+</script>
+</body>
+</html>
