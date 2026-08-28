@@ -350,7 +350,6 @@ const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-red
 const CITIES = [
   {
     id:'sydney', name:'Sydney', short:'Harbour lights & sea air', tz:'Australia/Sydney', seed:11,
-    landmark:'operaHouseBridge', shimmer:false,
     palette:{
       dayTop:[110,178,224], dayMid:[176,214,232], dayBottom:[224,238,232],
       nightTop:[8,12,32], nightMid:[18,26,52], nightBottom:[30,38,58],
@@ -371,7 +370,6 @@ const CITIES = [
   },
   {
     id:'dubai', name:'Dubai', short:'Desert heat & glass towers', tz:'Asia/Dubai', seed:22,
-    landmark:'burjSpike', shimmer:true,
     palette:{
       dayTop:[92,168,224], dayMid:[214,196,160], dayBottom:[244,222,180],
       nightTop:[10,10,26], nightMid:[30,20,34], nightBottom:[54,34,30],
@@ -392,7 +390,6 @@ const CITIES = [
   },
   {
     id:'dc', name:'Washington D.C.', short:'Monuments & motorcades', tz:'America/New_York', seed:33,
-    landmark:'capitolMonument', shimmer:false,
     palette:{
       dayTop:[104,158,214], dayMid:[186,206,222], dayBottom:[222,228,220],
       nightTop:[9,12,26], nightMid:[20,24,40], nightBottom:[28,30,40],
@@ -413,7 +410,6 @@ const CITIES = [
   },
   {
     id:'philly', name:'Philadelphia', short:'Rowhouses & rail rumble', tz:'America/New_York', seed:44,
-    landmark:'cityHallTower', shimmer:false,
     palette:{
       dayTop:[118,150,196], dayMid:[190,196,206], dayBottom:[222,214,208],
       nightTop:[12,10,24], nightMid:[26,22,38], nightBottom:[38,30,36],
@@ -434,7 +430,6 @@ const CITIES = [
   },
   {
     id:'karachi', name:'Karachi', short:'Bustle & sea breeze', tz:'Asia/Karachi', seed:55,
-    landmark:'karachiSkyline', shimmer:false,
     palette:{
       dayTop:[112,164,206], dayMid:[210,196,168], dayBottom:[236,214,176],
       nightTop:[10,10,24], nightMid:[28,22,32], nightBottom:[46,32,30],
@@ -456,192 +451,646 @@ const CITIES = [
 ];
 
 /* ============================================================
-   Landmark silhouettes (drawn once into offscreen layers)
+   Per-city scene state + bespoke composition drawing
+   Each city gets its own hand-built scene (not a generic template)
+   so the skyline, ground plane and moving elements are distinct.
    ============================================================ */
-const LANDMARKS = {
-  operaHouseBridge(ctx,x,groundY,scale,color){
-    ctx.fillStyle = color;
-    const shells = [ [0,1.0,0.9], [0.35,0.8,0.72], [0.65,0.62,0.55], [0.9,0.42,0.4] ];
-    shells.forEach(([dx,h,w])=>{
-      const sx = x + dx*70*scale;
-      const sw = w*60*scale, sh = h*46*scale;
-      ctx.beginPath();
-      ctx.moveTo(sx, groundY);
-      ctx.quadraticCurveTo(sx + sw*0.15, groundY - sh*0.5, sx + sw*0.55, groundY - sh);
-      ctx.quadraticCurveTo(sx + sw*0.78, groundY - sh*0.55, sx + sw, groundY);
-      ctx.closePath();
-      ctx.fill();
+function makeClouds(rng, w, h, count, yMin, yMax){
+  const clouds = [];
+  for(let i=0;i<count;i++){
+    clouds.push({
+      x: rng()*w, y: h*(yMin+rng()*(yMax-yMin)),
+      w: w*(0.12+rng()*0.14), h: h*(0.02+rng()*0.03),
+      speed: 3+rng()*5, alpha: 0.3+rng()*0.3
     });
-    const bx = x + 150*scale, r = 110*scale;
-    ctx.beginPath();
-    ctx.arc(bx, groundY + r*0.28, r, Math.PI*1.12, Math.PI*1.88);
-    ctx.lineWidth = 5*scale; ctx.strokeStyle = color; ctx.stroke();
-    for(let i=0;i<6;i++){
-      const t = i/5, px = bx - r*0.85 + t*r*1.7;
-      ctx.beginPath(); ctx.moveTo(px, groundY - r*0.3*Math.sin(Math.acos(clamp((px-bx)/r,-1,1))));
-      ctx.lineTo(px, groundY);
-      ctx.lineWidth = 2*scale; ctx.stroke();
-    }
-  },
-  burjSpike(ctx,x,groundY,scale,color){
-    ctx.fillStyle = color;
-    const tiers = [ [0,120,34], [30,190,26], [55,260,18], [72,320,10] ];
-    tiers.forEach(([dx,h,w])=>{
-      ctx.fillRect(x+dx*scale - w*scale/2, groundY - h*scale, w*scale, h*scale);
-    });
-    ctx.beginPath();
-    ctx.moveTo(x+72*scale, groundY-320*scale);
-    ctx.lineTo(x+72*scale, groundY-390*scale);
-    ctx.lineWidth = 2.5*scale; ctx.strokeStyle = color; ctx.stroke();
-    ctx.fillRect(x-90*scale, groundY-150*scale, 34*scale, 150*scale);
-    ctx.fillRect(x-40*scale, groundY-190*scale, 30*scale, 190*scale);
-    ctx.fillRect(x+130*scale, groundY-170*scale, 32*scale, 170*scale);
-  },
-  capitolMonument(ctx,x,groundY,scale,color){
-    ctx.fillStyle = color;
-    const dw=90*scale, dh=60*scale;
-    ctx.fillRect(x - dw/2, groundY - dh, dw, dh);
-    ctx.beginPath();
-    ctx.ellipse(x, groundY - dh, dw*0.5, dh*0.75, 0, Math.PI, 0, false);
-    ctx.fill();
-    ctx.fillRect(x-3*scale, groundY-dh-dh*0.75-14*scale, 6*scale, 14*scale);
-    const ox = x + 220*scale, ow = 16*scale, oh = 260*scale;
-    ctx.beginPath();
-    ctx.moveTo(ox-ow/2, groundY);
-    ctx.lineTo(ox-ow/2, groundY-oh);
-    ctx.lineTo(ox, groundY-oh-22*scale);
-    ctx.lineTo(ox+ow/2, groundY-oh);
-    ctx.lineTo(ox+ow/2, groundY);
-    ctx.closePath(); ctx.fill();
-  },
-  cityHallTower(ctx,x,groundY,scale,color){
-    ctx.fillStyle = color;
-    const tw=54*scale, th=230*scale;
-    ctx.fillRect(x-tw/2, groundY-th, tw, th);
-    ctx.fillRect(x-tw*0.36, groundY-th-26*scale, tw*0.72, 26*scale);
-    ctx.beginPath();
-    ctx.arc(x, groundY-th-4*scale, 11*scale, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(0,0,0,0)';
-    ctx.strokeStyle = color; ctx.lineWidth=2.5*scale; ctx.stroke();
-    ctx.fillStyle = color;
-    ctx.fillRect(x-1.5*scale, groundY-th-26*scale-30*scale, 3*scale, 30*scale);
-    for(let i=0;i<5;i++){
-      const rx = x - 180*scale + i*70*scale + (i%2?10*scale:0);
-      const rh = (60+((i*37)%40))*scale;
-      ctx.beginPath();
-      ctx.moveTo(rx, groundY); ctx.lineTo(rx, groundY-rh);
-      ctx.lineTo(rx+18*scale, groundY-rh-14*scale); ctx.lineTo(rx+36*scale, groundY-rh);
-      ctx.lineTo(rx+36*scale, groundY); ctx.closePath(); ctx.fill();
-    }
-  },
-  karachiSkyline(ctx,x,groundY,scale,color){
-    ctx.fillStyle = color;
-    [ [0,150,14], [40,190,12] ].forEach(([dx,h,w])=>{
-      const mx = x+dx*scale;
-      ctx.beginPath();
-      ctx.moveTo(mx-w*scale/2, groundY);
-      ctx.lineTo(mx-w*scale/2, groundY-h*scale);
-      ctx.quadraticCurveTo(mx, groundY-h*scale-24*scale, mx+w*scale/2, groundY-h*scale);
-      ctx.lineTo(mx+w*scale/2, groundY);
-      ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.arc(mx, groundY-h*scale-24*scale, 5*scale,0,Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(mx,groundY-h*scale-24*scale-4*scale); ctx.lineTo(mx,groundY-h*scale-46*scale);
-      ctx.lineWidth=1.5*scale; ctx.strokeStyle=color; ctx.stroke();
-    });
-    const lx = x+130*scale, lh=210*scale, lw=40*scale;
-    ctx.beginPath();
-    ctx.moveTo(lx-lw/2, groundY); ctx.lineTo(lx-lw*0.08, groundY-lh); ctx.lineTo(lx+lw*0.08, groundY-lh); ctx.lineTo(lx+lw/2, groundY);
-    ctx.lineWidth=2*scale; ctx.strokeStyle=color; ctx.stroke();
-    for(let i=1;i<5;i++){
-      const t=i/5, yy=groundY-lh*t;
-      const lxw = lerp(lw/2, lw*0.08, t);
-      ctx.beginPath(); ctx.moveTo(lx-lxw, yy); ctx.lineTo(lx+lxw, yy); ctx.stroke();
-    }
   }
-};
-
-/* ============================================================
-   Scene state + procedural skyline generation
-   ============================================================ */
-function genBuildings(rng, xFrom, xTo, minH, maxH, minW, maxW, groundFrac){
-  const list = [];
-  let x = xFrom;
-  while(x < xTo){
-    const w = minW + rng()*(maxW-minW);
-    const h = minH + rng()*(maxH-minH);
-    list.push({ x, w, h, seed: rng() });
-    x += w - (1 + rng()*4);
-  }
-  return list;
+  return clouds;
 }
 
-function buildWindows(rng, b){
-  const cols = Math.max(2, Math.floor(b.w/9));
-  const rows = Math.max(3, Math.floor(b.h/11));
-  const wins = [];
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      if(rng() < 0.42){
-        wins.push({
-          cx: c/(cols-1||1), cy: r/(rows-1||1),
-          lit: rng() < 0.55,
-          phase: rng()*Math.PI*2,
-          flickerAmt: rng()*0.35
-        });
+function perspectivePoint(t, laneOffsetNear, laneOffsetFar, w, h, horizonY, offsetX){
+  const vx = w*0.5 + offsetX*0.5;
+  return {
+    x: vx + lerp(laneOffsetFar, laneOffsetNear, t),
+    y: lerp(horizonY+4, h-8, t),
+    scale: lerp(0.1, 1, t)
+  };
+}
+
+/* ---------------- Sydney: harbour, Opera House, Harbour Bridge ---------------- */
+function buildSydneyState(rng, w, h){
+  const waterTop = h*0.7;
+  const boats = [];
+  for(let i=0;i<3;i++){
+    boats.push({
+      laneY: waterTop + h*(0.05+i*0.05) + rng()*h*0.02,
+      x: rng()*w,
+      speed: (7+rng()*9) * (rng()<0.5?1:-1),
+      scale: 0.55 + i*0.28,
+      bob: rng()*Math.PI*2
+    });
+  }
+  return {
+    waterTop, boats,
+    clouds: makeClouds(rng, w, h, 4, 0.05, 0.26),
+    birds: [], nextBirdAt: performance.now()+1500+rng()*4000
+  };
+}
+function drawHazySkyline(ctx, w, groundY, offsetX, dayFactor){
+  const rng = mulberry32(777);
+  ctx.fillStyle = dayFactor>0.4 ? 'rgba(140,155,175,0.45)' : 'rgba(18,22,32,0.55)';
+  let x = w*0.55 + offsetX;
+  for(let i=0;i<9;i++){
+    const bw = 14+rng()*20, bh = 30+rng()*70;
+    ctx.fillRect(x, groundY-bh, bw, bh);
+    x += bw+rng()*4;
+  }
+}
+function drawHarbourBridge(ctx, cx, groundY, scaleBase, dayFactor){
+  const s = scaleBase/900;
+  const spanW = 480*s, controlH = 300*s, deckY = groundY - 46*s;
+  const color = dayFactor>0.45 ? 'rgba(38,42,52,0.9)' : 'rgba(8,10,18,0.94)';
+  ctx.fillStyle = color; ctx.strokeStyle = color;
+  ctx.fillRect(cx-spanW/2-12*s, deckY, 24*s, groundY-deckY+30*s);
+  ctx.fillRect(cx+spanW/2-12*s, deckY, 24*s, groundY-deckY+30*s);
+  ctx.fillRect(cx-spanW/2, deckY-7*s, spanW, 12*s);
+  ctx.lineWidth = 8*s;
+  ctx.beginPath();
+  ctx.moveTo(cx-spanW/2, deckY);
+  ctx.quadraticCurveTo(cx, deckY-controlH, cx+spanW/2, deckY);
+  ctx.stroke();
+  ctx.lineWidth = 2*s;
+  const segs = 16;
+  for(let i=1;i<segs;i++){
+    const t = i/segs;
+    const x = cx-spanW/2 + t*spanW;
+    const archY = deckY - controlH*2*t*(1-t);
+    ctx.beginPath(); ctx.moveTo(x, archY); ctx.lineTo(x, deckY); ctx.stroke();
+  }
+}
+function drawOperaHouse(ctx, cx, groundY, scaleBase, dayFactor){
+  const s = scaleBase/900;
+  const baseColor = dayFactor>0.4 ? '#eef0ea' : 'rgba(24,28,38,0.92)';
+  const shadeColor = dayFactor>0.4 ? '#c7cbc0' : 'rgba(12,14,20,0.9)';
+  ctx.fillStyle = dayFactor>0.4 ? '#d9cdb8' : 'rgba(18,20,26,0.85)';
+  ctx.fillRect(cx-130*s, groundY-16*s, 260*s, 16*s);
+  const shells = [
+    {dx:-95,w:70,h:78,tilt:-0.12},{dx:-45,w:78,h:100,tilt:-0.05},
+    {dx:15,w:82,h:112,tilt:0.03},{dx:70,w:66,h:86,tilt:0.10},{dx:112,w:46,h:60,tilt:0.16}
+  ];
+  shells.forEach(sh=>{
+    const x = cx+sh.dx*s, w = sh.w*s, h = sh.h*s;
+    ctx.save();
+    ctx.translate(x, groundY-16*s);
+    ctx.rotate(sh.tilt);
+    ctx.fillStyle = baseColor;
+    ctx.beginPath();
+    ctx.moveTo(-w*0.5,0);
+    ctx.quadraticCurveTo(-w*0.1,-h*0.55, w*0.08,-h);
+    ctx.quadraticCurveTo(w*0.32,-h*0.5, w*0.5,0);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = shadeColor; ctx.lineWidth = 1.2*s;
+    for(let k=1;k<5;k++){
+      const t = k/5;
+      ctx.beginPath();
+      ctx.moveTo(-w*0.5+t*w*0.55, 0);
+      ctx.quadraticCurveTo(-w*0.1+t*w*0.16, -h*0.55*Math.min(1,t*1.3), w*0.08*t*1.1, -h*t);
+      ctx.stroke();
+    }
+    ctx.restore();
+  });
+}
+function drawHarbourWater(ctx, w, h, waterTop, dayFactor, time){
+  const top = lerpColor([70,120,150],[130,180,196], dayFactor);
+  const bot = lerpColor([20,40,60],[70,110,130], dayFactor);
+  const g = ctx.createLinearGradient(0,waterTop,0,h);
+  g.addColorStop(0, rgb(top)); g.addColorStop(1, rgb(bot));
+  ctx.fillStyle = g; ctx.fillRect(0,waterTop,w,h-waterTop);
+  ctx.strokeStyle = `rgba(255,255,255,${0.12+dayFactor*0.12})`;
+  ctx.lineWidth = 1;
+  for(let i=0;i<26;i++){
+    const yy = waterTop + (h-waterTop) * ((i*53%97)/97);
+    const xOff = Math.sin(time*0.6+i)*14;
+    const lw = 18+((i*37)%40);
+    ctx.beginPath();
+    ctx.moveTo(((i*83)%w)+xOff, yy);
+    ctx.lineTo(((i*83)%w)+xOff+lw, yy);
+    ctx.stroke();
+  }
+}
+function updateAndDrawBoats(ctx, boats, w, dayFactor, dt, paused, now){
+  boats.forEach(b=>{
+    if(!paused) b.x += b.speed*dt;
+    if(b.speed>0 && b.x>w+60) b.x=-60;
+    if(b.speed<0 && b.x<-60) b.x=w+60;
+    const y = b.laneY + Math.sin(now*0.001+b.bob)*2;
+    const s = b.scale, dir = b.speed>0?1:-1;
+    ctx.save();
+    ctx.translate(b.x,y);
+    ctx.scale(dir,1);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath(); ctx.moveTo(-14*s,0); ctx.lineTo(-40*s,6*s); ctx.lineTo(-40*s,-6*s); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = dayFactor>0.4 ? '#f2f2ee' : 'rgba(28,30,36,0.9)';
+    ctx.beginPath(); ctx.moveTo(-14*s,4*s); ctx.lineTo(12*s,4*s); ctx.lineTo(16*s,0); ctx.lineTo(-16*s,0); ctx.closePath(); ctx.fill();
+    ctx.fillRect(-6*s,-6*s,14*s,6*s);
+    ctx.restore();
+    if(dayFactor<0.35){
+      ctx.fillStyle = 'rgba(255,210,140,0.9)';
+      ctx.beginPath(); ctx.arc(b.x+6*s*dir, y-3*s, 1.6*s, 0, Math.PI*2); ctx.fill();
+    }
+  });
+}
+function renderSydney(ctx, w, h, state, now, dt, opts, city){
+  drawSunMoon(ctx, w, h, city.palette, state.dayFactor, (state.time*0.004)%1);
+  drawClouds(ctx, state.clouds, w, h, state.parallaxX, state.dayFactor, dt, opts.reduced);
+  const px = state.parallaxX;
+  drawHazySkyline(ctx, w, state.waterTop, px*8, state.dayFactor);
+  drawHarbourBridge(ctx, w*0.32+px*18, state.waterTop, Math.min(w,h), state.dayFactor);
+  drawOperaHouse(ctx, w*0.7+px*30, state.waterTop, Math.min(w,h), state.dayFactor);
+  drawHarbourWater(ctx, w, h, state.waterTop, state.dayFactor, state.time);
+  updateAndDrawBoats(ctx, state.boats, w, state.dayFactor, dt, opts.reduced, now);
+  drawBirds(state, ctx, w, h, now, state.dayFactor, opts.reduced);
+}
+
+/* ---------------- Dubai: Sheikh Zayed Road, glass towers, traffic ---------------- */
+function makeDubaiTowers(rng, side){
+  const towers = [];
+  const count = 6;
+  for(let i=0;i<count;i++){
+    towers.push({
+      depth: i/(count-1), side,
+      baseW: 70+rng()*50, baseH: 240+rng()*260,
+      hue: rng(), spike: rng()<0.25
+    });
+  }
+  return towers;
+}
+function buildDubaiState(rng, w, h){
+  const horizonY = h*0.58;
+  const cars = [];
+  for(let i=0;i<6;i++){
+    cars.push({ lane:i%3, t:rng(), speed:0.5+rng()*0.4, dir: rng()<0.5?1:-1, hue:rng() });
+  }
+  return {
+    horizonY,
+    towersLeft: makeDubaiTowers(rng,'left'),
+    towersRight: makeDubaiTowers(rng,'right'),
+    cars,
+    clouds: makeClouds(rng, w, h, 3, 0.04, 0.2)
+  };
+}
+function drawDubaiTower(ctx, t, w, h, horizonY, dayFactor, offsetX){
+  const vx = w*0.5+offsetX*0.5;
+  const edgeX = t.side==='left' ? -20 : w+20;
+  const x = lerp(edgeX, vx, Math.pow(t.depth,0.9)) + offsetX*(1-t.depth)*0.3;
+  const scale = lerp(1, 0.12, t.depth);
+  const bw = t.baseW*scale, bh = t.baseH*scale;
+  const baseY = lerp(h*0.98, horizonY, t.depth);
+  const topY = baseY-bh;
+  const x0 = t.side==='left' ? x : x-bw;
+  const tone = dayFactor>0.4
+    ? `hsl(${200+t.hue*40},${30+t.hue*20}%,${58+t.hue*15}%)`
+    : `hsl(${210+t.hue*30},20%,${9+t.hue*6}%)`;
+  ctx.fillStyle = tone;
+  ctx.fillRect(x0, topY, bw, bh);
+  ctx.strokeStyle = dayFactor>0.4 ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = Math.max(0.5,1*scale);
+  const seams = Math.max(2, Math.round(bw/(10*scale+6)));
+  for(let sN=1;sN<seams;sN++){
+    const sx = x0 + (bw*sN/seams);
+    ctx.beginPath(); ctx.moveTo(sx, topY); ctx.lineTo(sx, baseY); ctx.stroke();
+  }
+  if(t.spike){
+    ctx.beginPath(); ctx.moveTo(x0+bw/2, topY); ctx.lineTo(x0+bw/2, topY-40*scale);
+    ctx.lineWidth = 1.5*scale; ctx.stroke();
+  }
+  if(dayFactor<0.5){
+    const alphaBase = (0.5-dayFactor)*2;
+    const rows = Math.max(2, Math.floor(bh/(14*scale+1)));
+    const cols = Math.max(1, Math.floor(bw/(10*scale+1)));
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      if(((r*31+c*17+Math.floor(t.hue*97))%5)===0){
+        ctx.fillStyle = `rgba(255,214,140,${0.5*alphaBase})`;
+        ctx.fillRect(x0+2+c*(bw/cols), topY+2+r*(bh/rows), Math.max(1,3*scale), Math.max(1,4*scale));
       }
     }
   }
+}
+function drawDubaiRoad(ctx, w, h, horizonY, offsetX, time){
+  const vx = w*0.5+offsetX*0.5;
+  ctx.fillStyle = '#33363c';
+  ctx.beginPath();
+  ctx.moveTo(vx-14,horizonY); ctx.lineTo(vx+14,horizonY);
+  ctx.lineTo(w*0.88,h); ctx.lineTo(w*0.12,h);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  const dashCount = 14;
+  for(let i=0;i<dashCount;i++){
+    const t = ((i/dashCount) + (time*0.05)%1) % 1;
+    const y = lerp(horizonY,h,t);
+    const dashW = lerp(1,7,t), dashH = lerp(2,22,t);
+    ctx.fillRect(vx-dashW/2, y, dashW, dashH);
+  }
+}
+function updateAndDrawDubaiCars(ctx, cars, w, h, horizonY, offsetX, dayFactor, dt, paused){
+  cars.sort((a,b)=>b.t-a.t);
+  cars.forEach(c=>{
+    if(!paused){
+      c.t += c.speed*dt*c.dir*0.35;
+      if(c.t>1.05) c.t=-0.05;
+      if(c.t<-0.05) c.t=1.05;
+    }
+    const t = clamp(c.t,0,1);
+    const pt = perspectivePoint(t, (c.lane-1)*34, (c.lane-1)*3, w, h, horizonY, offsetX);
+    const cw = 26*pt.scale, ch = 12*pt.scale;
+    ctx.fillStyle = dayFactor>0.4 ? ['#c0392b','#2c3e50','#ecf0f1','#7f8c8d'][Math.floor(c.hue*4)] : '#141414';
+    ctx.fillRect(pt.x-cw/2, pt.y-ch, cw, ch);
+    if(dayFactor<=0.4){
+      ctx.fillStyle = c.dir>0 ? 'rgba(255,255,255,0.95)' : 'rgba(255,70,60,0.95)';
+      ctx.beginPath();
+      ctx.arc(pt.x-cw*0.3, pt.y-ch*0.3, 1.6*pt.scale, 0, Math.PI*2);
+      ctx.arc(pt.x+cw*0.3, pt.y-ch*0.3, 1.6*pt.scale, 0, Math.PI*2);
+      ctx.fill();
+    }
+  });
+}
+function renderDubai(ctx, w, h, state, now, dt, opts, city){
+  drawSunMoon(ctx, w, h, city.palette, state.dayFactor, (state.time*0.004)%1);
+  drawClouds(ctx, state.clouds, w, h, state.parallaxX, state.dayFactor, dt, opts.reduced);
+  drawDubaiRoad(ctx, w, h, state.horizonY, state.parallaxX, state.time);
+  const towers = [...state.towersLeft, ...state.towersRight].sort((a,b)=>b.depth-a.depth);
+  towers.forEach(t=> drawDubaiTower(ctx, t, w, h, state.horizonY, state.dayFactor, state.parallaxX));
+  updateAndDrawDubaiCars(ctx, state.cars, w, h, state.horizonY, state.parallaxX, state.dayFactor, dt, opts.reduced);
+}
+
+/* ---------------- Washington D.C.: Tidal Basin cherry blossoms ---------------- */
+function buildDCState(rng, w, h){
+  const waterTop = h*0.72;
+  const branches = ['tl','tr'].map(side=>{
+    const count = 5+Math.floor(rng()*3);
+    const blossoms = [];
+    for(let i=0;i<count;i++){
+      blossoms.push({ dx: 20+rng()*130, dy: 10+rng()*100, r: 14+rng()*18, hue: rng() });
+    }
+    return { side, blossoms, swayPhase: rng()*Math.PI*2, swaySpeed: 0.35+rng()*0.25 };
+  });
+  return {
+    waterTop, branches, petals: [], nextPetalAt: performance.now()+2000,
+    clouds: makeClouds(rng, w, h, 3, 0.05, 0.18),
+    birds: [], nextBirdAt: performance.now()+2000+rng()*4000
+  };
+}
+function drawWashingtonMonument(ctx, cx, groundY, scaleBase, dayFactor){
+  const s = scaleBase/900;
+  const ow = 22*s, oh = 280*s;
+  ctx.fillStyle = dayFactor>0.3 ? '#e8e4da' : 'rgba(58,56,52,0.9)';
+  ctx.beginPath();
+  ctx.moveTo(cx-ow/2,groundY);
+  ctx.lineTo(cx-ow/2,groundY-oh);
+  ctx.lineTo(cx,groundY-oh-30*s);
+  ctx.lineTo(cx+ow/2,groundY-oh);
+  ctx.lineTo(cx+ow/2,groundY);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1*s;
+  ctx.beginPath(); ctx.moveTo(cx,groundY); ctx.lineTo(cx,groundY-oh-30*s); ctx.stroke();
+}
+function drawFarTreeline(ctx, w, groundY, dayFactor){
+  const rng = mulberry32(555);
+  ctx.fillStyle = dayFactor>0.3 ? 'rgba(210,170,190,0.5)' : 'rgba(28,24,32,0.6)';
+  let x = 0;
+  while(x<w){
+    const rw = 30+rng()*40;
+    ctx.beginPath(); ctx.ellipse(x+rw/2, groundY-14, rw*0.6, 16, 0,0,Math.PI*2); ctx.fill();
+    x += rw*0.8;
+  }
+}
+function drawTidalBasin(ctx, w, h, waterTop, dayFactor, time){
+  const top = lerpColor([60,90,120],[150,188,206], dayFactor);
+  const bot = lerpColor([20,30,46],[195,208,212], dayFactor);
+  const g = ctx.createLinearGradient(0,waterTop,0,h);
+  g.addColorStop(0, rgb(top)); g.addColorStop(1, rgb(bot));
+  ctx.fillStyle = g; ctx.fillRect(0,waterTop,w,h-waterTop);
+  ctx.strokeStyle = `rgba(255,255,255,${0.08+dayFactor*0.1})`;
+  for(let i=0;i<18;i++){
+    const yy = waterTop+(h-waterTop)*(i/18);
+    const xOff = Math.sin(time*0.4+i)*10;
+    ctx.beginPath(); ctx.moveTo(((i*97)%w)+xOff,yy); ctx.lineTo(((i*97)%w)+xOff+30,yy); ctx.stroke();
+  }
+}
+function drawCherryBlossoms(ctx, w, h, branches, time, reduced){
+  branches.forEach(branch=>{
+    const sway = reduced ? 0 : Math.sin(time*branch.swaySpeed+branch.swayPhase)*0.07;
+    const isLeft = branch.side==='tl';
+    const originX = isLeft ? -10 : w+10, originY = -10;
+    const dirX = isLeft ? 1 : -1, dirY = 1;
+    ctx.save();
+    ctx.translate(originX, originY);
+    ctx.rotate(sway);
+    ctx.strokeStyle = 'rgba(60,42,36,0.9)';
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(dirX*160,dirY*120); ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(dirX*70,dirY*40); ctx.lineTo(dirX*130,dirY*90); ctx.stroke();
+    branch.blossoms.forEach(b=>{
+      const bx = dirX*b.dx, by = dirY*b.dy;
+      const pink = lerpColor([255,214,225],[255,180,205], b.hue);
+      ctx.fillStyle = rgba(pink,0.92);
+      [[0,0],[b.r*0.5,b.r*0.15],[-b.r*0.3,b.r*0.4]].forEach(([ox,oy])=>{
+        ctx.beginPath(); ctx.arc(bx+ox,by+oy,b.r*0.5,0,Math.PI*2); ctx.fill();
+      });
+    });
+    ctx.restore();
+  });
+}
+function updateAndDrawPetals(state, ctx, w, h, dt, reduced){
+  if(!reduced && performance.now()>state.nextPetalAt && state.petals.length<14){
+    state.petals.push({ x:Math.random()*w, y:-10, vy:14+Math.random()*10, vx:(Math.random()-0.5)*10, phase:Math.random()*Math.PI*2 });
+    state.nextPetalAt = performance.now()+900+Math.random()*1600;
+  }
+  ctx.fillStyle = 'rgba(255,200,215,0.85)';
+  for(let i=state.petals.length-1;i>=0;i--){
+    const p = state.petals[i];
+    if(!reduced){ p.y += p.vy*dt; p.x += p.vx*dt + Math.sin(p.y*0.05+p.phase)*0.4; }
+    ctx.beginPath(); ctx.arc(p.x,p.y,2.4,0,Math.PI*2); ctx.fill();
+    if(p.y>h+10) state.petals.splice(i,1);
+  }
+}
+function renderDC(ctx, w, h, state, now, dt, opts, city){
+  drawSunMoon(ctx, w, h, city.palette, state.dayFactor, (state.time*0.004)%1);
+  drawClouds(ctx, state.clouds, w, h, state.parallaxX, state.dayFactor, dt, opts.reduced);
+  drawFarTreeline(ctx, w, state.waterTop, state.dayFactor);
+  drawWashingtonMonument(ctx, w*0.5+state.parallaxX*10, state.waterTop, Math.min(w,h), state.dayFactor);
+  drawTidalBasin(ctx, w, h, state.waterTop, state.dayFactor, state.time);
+  drawBirds(state, ctx, w, h, now, state.dayFactor, opts.reduced);
+  drawCherryBlossoms(ctx, w, h, state.branches, state.time, opts.reduced);
+  updateAndDrawPetals(state, ctx, w, h, dt, opts.reduced);
+}
+
+/* ---------------- Philadelphia: rowhomes, trees, fairy lights ---------------- */
+function genRowhomeWindows(rng, width, height){
+  const wins = [];
+  const cols = Math.max(1, Math.floor(width/26));
+  const rows = Math.max(2, Math.floor(height/34));
+  for(let r=0;r<rows-1;r++) for(let c=0;c<cols;c++){
+    wins.push({ cx:(c+0.5)/cols, cy:(r+0.6)/rows, lit: rng()<0.5, phase: rng()*Math.PI*2 });
+  }
   return wins;
 }
+function genRowhomes(rng, w, groundY){
+  const homes = [];
+  const brickHues = [['#8a3b2e','#6e2c22'],['#7c3d2a','#5e2c1e'],['#9c4a34','#7a3626'],['#6f3324','#54241a']];
+  let x = -20;
+  while(x<w+20){
+    const width = 60+rng()*30, height = 90+rng()*50;
+    homes.push({
+      x, width, height,
+      brick: brickHues[Math.floor(rng()*brickHues.length)],
+      doorHue: rng(),
+      windows: genRowhomeWindows(rng,width,height)
+    });
+    x += width;
+  }
+  return homes;
+}
+function buildPhillyState(rng, w, h){
+  const groundY = h*0.86;
+  const lights = [];
+  for(let sN=0;sN<3;sN++){
+    const y0 = h*(0.26+sN*0.11), sag = 18+rng()*18;
+    const count = 8+Math.floor(rng()*4);
+    const pts = [];
+    for(let i=0;i<count;i++) pts.push({ t:i/(count-1), phase: rng()*Math.PI*2, hue: rng() });
+    lights.push({ y0, sag, pts, xStart: w*0.03, xEnd: w*0.97 });
+  }
+  return {
+    groundY,
+    rowhomes: genRowhomes(rng, w, groundY),
+    lights, leaves: [], nextLeafAt: performance.now()+1500,
+    clouds: makeClouds(rng, w, h, 3, 0.04, 0.16)
+  };
+}
+function drawRowhomes(ctx, homes, groundY, offsetX, dayFactor){
+  homes.forEach(hm=>{
+    const x = hm.x+offsetX;
+    ctx.fillStyle = dayFactor>0.35 ? hm.brick[0] : hm.brick[1];
+    ctx.fillRect(x, groundY-hm.height, hm.width, hm.height);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(x, groundY-hm.height, hm.width, 4);
+    const doorW = hm.width*0.22, doorH = hm.height*0.32;
+    const doorColors = ['#2f6b52','#8a2f3a','#274a73','#a8672c'];
+    ctx.fillStyle = doorColors[Math.floor(hm.doorHue*doorColors.length)];
+    ctx.fillRect(x+hm.width*0.5-doorW/2, groundY-doorH, doorW, doorH);
+    ctx.fillStyle = 'rgba(120,110,100,0.9)';
+    ctx.fillRect(x+hm.width*0.5-doorW*0.7, groundY, doorW*1.4, 6);
+    const nightness = 1-dayFactor;
+    hm.windows.forEach(win=>{
+      const wx = x+win.cx*hm.width, wy = groundY-hm.height+win.cy*hm.height;
+      const lit = win.lit && nightness>0.25;
+      ctx.fillStyle = lit ? `rgba(255,205,140,${0.85*nightness})` : 'rgba(20,18,20,0.55)';
+      ctx.fillRect(wx-5,wy-7,10,14);
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.strokeRect(wx-5,wy-7,10,14);
+    });
+  });
+}
+function drawTreeCanopy(ctx, w, h, groundY, parallaxX, dayFactor, seed){
+  const rng = mulberry32(seed);
+  const leafColor = dayFactor>0.35 ? 'rgba(90,110,60,0.9)' : 'rgba(30,36,26,0.9)';
+  for(let i=0;i<3;i++){
+    const tx = w*(0.15+i*0.35) + parallaxX*20;
+    const trunkH = h*0.3;
+    ctx.strokeStyle = 'rgba(45,32,26,0.95)'; ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.moveTo(tx,groundY); ctx.lineTo(tx-4,groundY-trunkH); ctx.stroke();
+    ctx.fillStyle = leafColor;
+    for(let b=0;b<6;b++){
+      const bx = tx+(rng()-0.5)*120, by = groundY-trunkH-20-rng()*90;
+      ctx.beginPath(); ctx.ellipse(bx,by,50+rng()*30,36+rng()*22,0,0,Math.PI*2); ctx.fill();
+    }
+  }
+}
+function drawFairyLights(ctx, w, h, lights, parallaxX, now, dayFactor){
+  const glowStrength = clamp(1-dayFactor*1.4,0,1);
+  lights.forEach(strand=>{
+    ctx.strokeStyle = 'rgba(40,34,30,0.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for(let i=0;i<=20;i++){
+      const t = i/20;
+      const x = lerp(strand.xStart,strand.xEnd,t)+parallaxX*14;
+      const y = strand.y0+Math.sin(t*Math.PI)*strand.sag;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    strand.pts.forEach(p=>{
+      const x = lerp(strand.xStart,strand.xEnd,p.t)+parallaxX*14;
+      const y = strand.y0+Math.sin(p.t*Math.PI)*strand.sag;
+      const twinkle = 0.55+Math.sin(now*0.003+p.phase)*0.35+(Math.sin(now*0.011+p.phase*3)>0.92?0.3:0);
+      const alpha = clamp(twinkle,0,1)*(0.35+glowStrength*0.65);
+      const hue = ['255,214,150','255,190,150','255,225,190'][Math.floor(p.hue*3)];
+      if(glowStrength>0.3){
+        const glow = ctx.createRadialGradient(x,y,0,x,y,7);
+        glow.addColorStop(0,`rgba(${hue},${alpha*0.5})`); glow.addColorStop(1,`rgba(${hue},0)`);
+        ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2); ctx.fill();
+      }
+      ctx.fillStyle = `rgba(${hue},${alpha})`;
+      ctx.beginPath(); ctx.arc(x,y,2.4,0,Math.PI*2); ctx.fill();
+    });
+  });
+}
+function updateAndDrawLeaves(state, ctx, w, h, dt, reduced){
+  if(!reduced && performance.now()>state.nextLeafAt && state.leaves.length<10){
+    state.leaves.push({ x:Math.random()*w, y:-10, vy:10+Math.random()*8, vx:(Math.random()-0.5)*8, phase:Math.random()*Math.PI*2, hue:Math.random() });
+    state.nextLeafAt = performance.now()+1200+Math.random()*2200;
+  }
+  for(let i=state.leaves.length-1;i>=0;i--){
+    const lv = state.leaves[i];
+    if(!reduced){ lv.y += lv.vy*dt; lv.x += Math.sin(lv.y*0.05+lv.phase)*0.6; }
+    const c = lerpColor([200,140,50],[170,80,40],lv.hue);
+    ctx.fillStyle = rgba(c,0.85);
+    ctx.beginPath(); ctx.ellipse(lv.x,lv.y,3,2,lv.phase,0,Math.PI*2); ctx.fill();
+    if(lv.y>h+10) state.leaves.splice(i,1);
+  }
+}
+function renderPhilly(ctx, w, h, state, now, dt, opts, city){
+  drawSunMoon(ctx, w, h, city.palette, state.dayFactor, (state.time*0.004)%1);
+  drawClouds(ctx, state.clouds, w, h, state.parallaxX, state.dayFactor, dt, opts.reduced);
+  drawRowhomes(ctx, state.rowhomes, state.groundY, state.parallaxX*10, state.dayFactor);
+  drawTreeCanopy(ctx, w, h, state.groundY, state.parallaxX, state.dayFactor, city.seed);
+  drawFairyLights(ctx, w, h, state.lights, state.parallaxX, now, state.dayFactor);
+  updateAndDrawLeaves(state, ctx, w, h, dt, opts.reduced);
+}
+
+/* ---------------- Karachi: street canyon, moving rickshaws ---------------- */
+function makeKarachiBuildings(rng, side){
+  const list = [];
+  const count = 7;
+  for(let i=0;i<count;i++){
+    list.push({
+      depth: i/(count-1), side,
+      baseW: 50+rng()*40, baseH: 120+rng()*160,
+      hue: rng(), signage: rng()<0.4
+    });
+  }
+  return list;
+}
+function buildKarachiState(rng, w, h){
+  const horizonY = h*0.56;
+  const rickshaws = [];
+  for(let i=0;i<4;i++){
+    rickshaws.push({ lane:i%3, t:rng(), speed:0.4+rng()*0.35, dir: rng()<0.6?1:-1, hue:rng() });
+  }
+  const wires = [];
+  for(let i=0;i<3;i++) wires.push({ y0: horizonY-10-i*14, sag: 12+rng()*10 });
+  return {
+    horizonY,
+    buildingsLeft: makeKarachiBuildings(rng,'left'),
+    buildingsRight: makeKarachiBuildings(rng,'right'),
+    rickshaws, wires,
+    clouds: makeClouds(rng, w, h, 3, 0.03, 0.14),
+    birds: [], nextBirdAt: performance.now()+2500+rng()*4000
+  };
+}
+function drawKarachiBuilding(ctx, b, w, h, horizonY, dayFactor, offsetX){
+  const vx = w*0.5+offsetX*0.5;
+  const edgeX = b.side==='left' ? -20 : w+20;
+  const x = lerp(edgeX, vx, Math.pow(b.depth,0.85)) + offsetX*(1-b.depth)*0.25;
+  const scale = lerp(1, 0.15, b.depth);
+  const bw = b.baseW*scale, bh = b.baseH*scale;
+  const baseY = lerp(h*0.96, horizonY, b.depth);
+  const topY = baseY-bh;
+  const x0 = b.side==='left' ? x : x-bw;
+  const tone = dayFactor>0.35
+    ? lerpColor([196,170,140],[220,196,160],b.hue)
+    : lerpColor([9,8,9],[20,16,15],b.hue);
+  ctx.fillStyle = rgb(tone);
+  ctx.fillRect(x0, topY, bw, bh);
+  const nightness = 1-dayFactor;
+  const cols = Math.max(2, Math.floor(bw/(9*scale+4)));
+  const rows = Math.max(2, Math.floor(bh/(11*scale+4)));
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const lit = nightness>0.25 && ((r*13+c*7+Math.floor(b.hue*97))%4===0);
+    ctx.fillStyle = lit ? `rgba(255,205,140,${0.6*nightness})` : 'rgba(20,16,14,0.35)';
+    ctx.fillRect(x0+2+c*(bw/cols), topY+2+r*(bh/rows), Math.max(1,4*scale), Math.max(1,5*scale));
+  }
+  if(b.signage && scale>0.4){
+    ctx.fillStyle = ['#c0392b','#2980b9','#27ae60','#e67e22'][Math.floor(b.hue*4)];
+    ctx.fillRect(x0, baseY-bh*0.18, bw, bh*0.07);
+  }
+}
+function drawKarachiStreet(ctx, w, h, horizonY, offsetX){
+  const vx = w*0.5+offsetX*0.5;
+  ctx.fillStyle = '#4a4640';
+  ctx.beginPath();
+  ctx.moveTo(vx-8,horizonY); ctx.lineTo(vx+8,horizonY);
+  ctx.lineTo(w*0.66,h); ctx.lineTo(w*0.34,h);
+  ctx.closePath(); ctx.fill();
+}
+function drawWires(ctx, w, wires, offsetX){
+  ctx.strokeStyle = 'rgba(20,20,24,0.5)'; ctx.lineWidth = 1;
+  wires.forEach(wire=>{
+    ctx.beginPath();
+    for(let i=0;i<=20;i++){
+      const t = i/20;
+      const x = t*w+offsetX*0.3;
+      const y = wire.y0+Math.sin(t*Math.PI)*wire.sag;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  });
+}
+function updateAndDrawRickshaws(ctx, rickshaws, w, h, horizonY, offsetX, dayFactor, dt, paused){
+  rickshaws.sort((a,b)=>b.t-a.t);
+  rickshaws.forEach(r=>{
+    if(!paused){
+      r.t += r.speed*dt*r.dir*0.4;
+      if(r.t>1.05) r.t=-0.05;
+      if(r.t<-0.05) r.t=1.05;
+    }
+    const t = clamp(r.t,0,1);
+    const pt = perspectivePoint(t, (r.lane-1)*30, (r.lane-1)*3, w, h, horizonY, offsetX);
+    const s = pt.scale, dir = r.dir;
+    const bodyColor = ['#f1c40f','#2ecc71','#e67e22'][Math.floor(r.hue*3)];
+    ctx.save();
+    ctx.translate(pt.x, pt.y);
+    ctx.scale(dir,1);
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath(); ctx.ellipse(0,-14*s,12*s,8*s,0,Math.PI,0); ctx.fill();
+    ctx.fillRect(-10*s,-14*s,20*s,12*s);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.arc(-7*s,0,3*s,0,Math.PI*2); ctx.arc(7*s,0,3*s,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    if(dayFactor<=0.4){
+      ctx.fillStyle = 'rgba(255,240,180,0.9)';
+      ctx.beginPath(); ctx.arc(pt.x+8*s*dir, pt.y-6*s, 1.4*s, 0, Math.PI*2); ctx.fill();
+    }
+  });
+}
+function renderKarachi(ctx, w, h, state, now, dt, opts, city){
+  drawSunMoon(ctx, w, h, city.palette, state.dayFactor, (state.time*0.004)%1);
+  drawClouds(ctx, state.clouds, w, h, state.parallaxX, state.dayFactor, dt, opts.reduced);
+  drawKarachiStreet(ctx, w, h, state.horizonY, state.parallaxX);
+  const buildings = [...state.buildingsLeft, ...state.buildingsRight].sort((a,b)=>b.depth-a.depth);
+  buildings.forEach(b=> drawKarachiBuilding(ctx, b, w, h, state.horizonY, state.dayFactor, state.parallaxX));
+  drawWires(ctx, w, state.wires, state.parallaxX);
+  updateAndDrawRickshaws(ctx, state.rickshaws, w, h, state.horizonY, state.parallaxX, state.dayFactor, dt, opts.reduced);
+  drawBirds(state, ctx, w, h, now, state.dayFactor, opts.reduced);
+}
+
+const SCENES = {
+  sydney: { build: buildSydneyState, render: renderSydney },
+  dubai: { build: buildDubaiState, render: renderDubai },
+  dc: { build: buildDCState, render: renderDC },
+  philly: { build: buildPhillyState, render: renderPhilly },
+  karachi: { build: buildKarachiState, render: renderKarachi }
+};
 
 function createSceneState(cityIndex, layerW, layerH){
   const city = CITIES[cityIndex];
   const rng = mulberry32(city.seed);
-  const groundY = layerH * 0.82;
-
-  const far = genBuildings(rng, -60, layerW+60, layerH*0.10, layerH*0.22, 30, 60, groundY);
-  const mid = genBuildings(rng, -60, layerW+60, layerH*0.16, layerH*0.34, 26, 54, groundY);
-  const near = genBuildings(rng, -60, layerW+60, layerH*0.22, layerH*0.46, 40, 90, groundY);
-  near.forEach(b=>{ b.windows = buildWindows(rng, b); });
-
-  const clouds = [];
-  const cloudCount = 5;
-  for(let i=0;i<cloudCount;i++){
-    clouds.push({
-      x: rng()*layerW, y: layerH*(0.06+rng()*0.28),
-      w: layerW*(0.14+rng()*0.16), h: layerH*(0.03+rng()*0.035),
-      speed: 3 + rng()*5, alpha: 0.35+rng()*0.35
-    });
-  }
-
-  return {
-    cityIndex, rng, groundY,
-    far, mid, near, clouds,
-    birds: [],
-    nextBirdAt: performance.now() + 1500 + Math.random()*4000,
+  const cityState = SCENES[city.id].build(rng, layerW, layerH);
+  return Object.assign({
+    cityIndex, rng,
     parallaxX: 0, parallaxY: 0,
-    dayFactor: 0.5,
-    dayFactorTarget: 0.5,
-    layerW, layerH,
-    farImg: null, midImg: null,
-    time: 0
-  };
-}
-
-function renderStaticLayer(city, buildings, groundY, w, h, includeLandmark){
-  const off = document.createElement('canvas');
-  off.width = w; off.height = h;
-  const c = off.getContext('2d');
-  const color = 'rgba(10,14,22,1)';
-  c.fillStyle = color;
-  buildings.forEach(b=>{
-    c.fillRect(b.x, groundY - b.h, b.w, b.h);
-  });
-  if(includeLandmark){
-    const cx = w*0.42;
-    LANDMARKS[city.landmark](c, cx, groundY, Math.min(w,h)/900, color);
-  }
-  return off;
+    dayFactor: 0.5, dayFactorTarget: 0.5,
+    layerW, layerH, time: 0
+  }, cityState);
 }
 
 /* ============================================================
@@ -758,58 +1207,19 @@ function drawRain(ctx, w, h, rng){
   }
 }
 
-function drawNearLayer(ctx, near, groundY, offsetX, dayFactor, now){
-  const nightness = 1-dayFactor;
-  near.forEach(b=>{
-    const bx = b.x + offsetX;
-    ctx.fillStyle = `rgba(8,10,16,1)`;
-    ctx.fillRect(bx, groundY-b.h, b.w, b.h);
-    if(nightness > 0.15 && b.windows){
-      b.windows.forEach(win=>{
-        const baseLit = win.lit && nightness > 0.2;
-        if(!baseLit) return;
-        const flicker = 0.75 + Math.sin(now*0.001*(1+win.phase) + win.phase)*win.flickerAmt*0.5;
-        const a = clamp(nightness * flicker, 0, 1);
-        ctx.fillStyle = `rgba(255,214,140,${a.toFixed(3)})`;
-        const wx = bx + win.cx * b.w;
-        const wy = groundY - b.h + win.cy * b.h;
-        ctx.fillRect(wx, wy, 3, 4);
-      });
-    }
-  });
-}
-
 const RAIN_RNG = mulberry32(999);
 
 function renderScene(state, ctx, w, h, now, dt, opts){
   const city = CITIES[state.cityIndex];
   state.time += dt;
-
-  const targetDF = state.dayFactorTarget;
-  state.dayFactor = lerp(state.dayFactor, targetDF, opts.reduced ? 1 : Math.min(1, dt*1.2));
+  state.dayFactor = lerp(state.dayFactor, state.dayFactorTarget, opts.reduced ? 1 : Math.min(1, dt*1.2));
 
   drawSky(ctx, w, h, city.palette, state.dayFactor);
-  drawSunMoon(ctx, w, h, city.palette, state.dayFactor, (state.time*0.004) % 1);
-  drawClouds(ctx, state.clouds, w, h, state.parallaxX, state.dayFactor, dt, opts.reduced);
+  SCENES[city.id].render(ctx, w, h, state, now, dt, opts, city);
 
-  const maxPx = 150;
-  const farOff = maxPx + state.parallaxX*0.15*maxPx;
-  const midOff = maxPx + state.parallaxX*0.4*maxPx;
-  const nearOff = state.parallaxX*0.85*maxPx;
-
-  if(state.farImg){
-    ctx.drawImage(state.farImg, clamp(farOff,0,state.farImg.width-w), 0, w, h, 0, 0, w, h);
-  }
-  if(state.midImg){
-    ctx.drawImage(state.midImg, clamp(midOff,0,state.midImg.width-w), 0, w, h, 0, 0, w, h);
-  }
-  drawNearLayer(ctx, state.near, state.groundY, nearOff, state.dayFactor, now);
-  drawBirds(state, ctx, w, h, now, state.dayFactor, opts.reduced);
-
-  if(city.shimmer && state.dayFactor > 0.35 && !opts.reduced){
+  if(city.id==='dubai' && state.dayFactor > 0.35 && !opts.reduced){
     applyHeatShimmer(ctx, ctx.canvas, now);
   }
-
   if(opts.rain){
     drawRain(ctx, w, h, RAIN_RNG);
   }
@@ -831,12 +1241,6 @@ let stateA = null, stateB = null;
 let frontIsA = true;
 let transitioning = false, transitionStart = 0, transitionDur = 1100;
 
-function buildLayers(state){
-  const city = CITIES[state.cityIndex];
-  state.farImg = renderStaticLayer(city, state.far, state.groundY, state.layerW, state.layerH, false);
-  state.midImg = renderStaticLayer(city, state.mid, state.groundY, state.layerW, state.layerH, true);
-}
-
 function sizeCanvases(){
   viewW = rig.clientWidth; viewH = rig.clientHeight;
   [canvasA, canvasB].forEach(cv=>{
@@ -845,16 +1249,14 @@ function sizeCanvases(){
   ctxA.setTransform(dpr,0,0,dpr,0,0);
   ctxB.setTransform(dpr,0,0,dpr,0,0);
 
-  const layerW = Math.round(viewW + 300);
-  const layerH = viewH;
-  if(stateA){ stateA.layerW = layerW; stateA.layerH = layerH; stateA.groundY = layerH*0.82; recomputeBuildings(stateA); buildLayers(stateA); }
-  if(stateB){ stateB.layerW = layerW; stateB.layerH = layerH; stateB.groundY = layerH*0.82; recomputeBuildings(stateB); buildLayers(stateB); }
+  if(stateA){ stateA.layerW = viewW; stateA.layerH = viewH; recomputeBuildings(stateA); }
+  if(stateB){ stateB.layerW = viewW; stateB.layerH = viewH; recomputeBuildings(stateB); }
 }
 
 function recomputeBuildings(state){
-  const fresh = createSceneState(state.cityIndex, state.layerW, state.layerH);
-  state.far = fresh.far; state.mid = fresh.mid; state.near = fresh.near;
-  state.groundY = fresh.groundY; state.clouds = fresh.clouds.length===state.clouds.length? state.clouds : fresh.clouds;
+  const city = CITIES[state.cityIndex];
+  const fresh = SCENES[city.id].build(mulberry32(city.seed), state.layerW, state.layerH);
+  Object.assign(state, fresh);
 }
 
 /* ============================================================
@@ -1344,9 +1746,8 @@ function enterCity(index){
   inExperience = true;
 
   sizeCanvases();
-  stateA = createSceneState(index, viewW+300, viewH);
-  buildLayers(stateA);
-  stateB = createSceneState(index, viewW+300, viewH);
+  stateA = createSceneState(index, viewW, viewH);
+  stateB = createSceneState(index, viewW, viewH);
   frontIsA = true;
   canvasA.style.opacity = 1; canvasB.style.opacity = 0;
 
@@ -1362,10 +1763,9 @@ function switchCity(index){
   AudioEngine.playCity(index);
 
   const backState = frontIsA ? stateB : stateA;
-  Object.assign(backState, createSceneState(index, viewW+300, viewH));
+  Object.assign(backState, createSceneState(index, viewW, viewH));
   backState.dayFactor = frontIsA ? stateA.dayFactor : stateB.dayFactor;
   backState.dayFactorTarget = computeTargetDayFactor(index);
-  buildLayers(backState);
 
   transitioning = true;
   transitionStart = performance.now();
