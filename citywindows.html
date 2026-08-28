@@ -56,10 +56,6 @@
   .landing-header p{
     margin:0; color:#5a5a62; font-size:clamp(13px,1.6vw,16px); line-height:1.5;
   }
-  .landing-note{
-    margin-top:6px !important; color:#9a9aa2 !important; font-size:clamp(11px,1.2vw,13px) !important;
-    font-style:italic;
-  }
   .city-strip{
     display:flex; flex-wrap:wrap; justify-content:center; gap:clamp(14px,2vw,26px);
     max-width:1180px; width:100%;
@@ -253,7 +249,6 @@
   <div class="landing-header">
     <h1>City Windows</h1>
     <p>Here are my favorite places in the world. Get a hint of what they feel like.</p>
-    <p class="landing-note">Vibecoded in an hour — please dismiss any inaccuracies.</p>
   </div>
   <div class="city-strip" id="citySelector" role="list"></div>
 </main>
@@ -409,7 +404,7 @@ const CITIES = [
     }
   },
   {
-    id:'philly', name:'Philadelphia', short:'Rowhouses & rail rumble', tz:'America/New_York', seed:44,
+    id:'philly', name:'Philadelphia', short:'Rowhouses & fairy lights', tz:'America/New_York', seed:44,
     palette:{
       dayTop:[118,150,196], dayMid:[190,196,206], dayBottom:[222,214,208],
       nightTop:[12,10,24], nightMid:[26,22,38], nightBottom:[38,30,36],
