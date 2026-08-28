@@ -40,8 +40,7 @@
     position:fixed; inset:0; z-index:20;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     gap:clamp(20px,4vh,48px);
-    background:
-      radial-gradient(120% 90% at 50% -10%, #1b2438 0%, #0a0d16 55%, #05060a 100%);
+    background:#ffffff;
     transition: opacity .7s ease, transform .7s ease, visibility 0s linear 0s;
     padding: calc(24px + var(--safe-t)) calc(20px + var(--safe-r)) calc(24px + var(--safe-b)) calc(20px + var(--safe-l));
   }
@@ -52,30 +51,39 @@
   .landing-header{ text-align:center; max-width:640px; }
   .landing-header h1{
     margin:0 0 8px; font-size:clamp(28px,5vw,44px); font-weight:600; letter-spacing:.01em;
+    color:#141414;
   }
   .landing-header p{
-    margin:0; color:#b9c0cc; font-size:clamp(13px,1.6vw,16px); line-height:1.5;
+    margin:0; color:#5a5a62; font-size:clamp(13px,1.6vw,16px); line-height:1.5;
   }
   .city-strip{
-    display:flex; flex-wrap:wrap; justify-content:center; gap:clamp(12px,2vw,22px);
+    display:flex; flex-wrap:wrap; justify-content:center; gap:clamp(14px,2vw,26px);
     max-width:1180px; width:100%;
   }
   .city-card{
-    position:relative; width:clamp(150px,20vw,220px); height:clamp(210px,28vw,300px);
-    border-radius:14px; border:1px solid rgba(255,255,255,.14);
+    position:relative; width:clamp(150px,26vw,230px); aspect-ratio:3/4;
+    border-radius:14px; border:1px solid rgba(0,0,0,.08);
     background:#0c0f16; color:#fff; cursor:pointer; overflow:hidden;
     padding:0; text-align:left;
     transform: translateY(0) scale(1);
     transition: transform .35s cubic-bezier(.2,.8,.3,1), box-shadow .35s ease, border-color .35s ease;
-    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+    box-shadow: 0 8px 22px rgba(20,20,30,.14);
   }
   .city-card:hover, .city-card:focus-visible{
     transform: translateY(-8px) scale(1.03);
-    border-color: rgba(255,255,255,.4);
-    box-shadow: 0 18px 34px rgba(0,0,0,.5);
+    border-color: rgba(0,0,0,.18);
+    box-shadow: 0 18px 36px rgba(20,20,30,.22);
     outline: none;
   }
-  .city-card:focus-visible{ box-shadow: 0 18px 34px rgba(0,0,0,.5), 0 0 0 3px var(--ui-accent); }
+  .city-card:focus-visible{ box-shadow: 0 18px 36px rgba(20,20,30,.22), 0 0 0 3px var(--ui-accent); }
+  @media (min-width: 860px){
+    .city-strip{
+      flex-wrap:nowrap;
+      max-width:min(1760px,94vw);
+      gap:clamp(16px,1.6vw,30px);
+    }
+    .city-card{ width:auto; flex:1 1 0; max-width:340px; }
+  }
   .teaser{
     position:absolute; inset:0; background-size:220% 220%; background-position:30% 40%;
     transition: background-position .8s ease;
@@ -253,7 +261,7 @@
 <main id="landing">
   <div class="landing-header">
     <h1>City Windows</h1>
-    <p>Step up to a window in five cities around the world. Pick one to begin — sound starts after you choose.</p>
+    <p>Here are my favorite places in the world. Get a hint of what they feel like.</p>
   </div>
   <div class="city-strip" id="citySelector" role="list"></div>
 </main>
