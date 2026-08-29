@@ -746,22 +746,28 @@ function drawDubaiTower(ctx, t, w, h, horizonY, dayFactor, offsetX){
     ctx.fillRect(x0, topY, bw, bh);
   }
 
-  ctx.strokeStyle = dayFactor>0.4 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)';
-  ctx.lineWidth = Math.max(0.4,0.8*scale);
-  const seams = Math.max(2, Math.round(bw/(9*scale+6)));
-  for(let sN=1;sN<seams;sN++){
-    const sx = x0 + (bw*sN/seams);
-    ctx.beginPath(); ctx.moveTo(sx, topY); ctx.lineTo(sx, baseY); ctx.stroke();
+  if(dayFactor>=0.5){
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = Math.max(0.4,0.8*scale);
+    const seams = Math.max(2, Math.round(bw/(9*scale+6)));
+    for(let sN=1;sN<seams;sN++){
+      const sx = x0 + (bw*sN/seams);
+      ctx.beginPath(); ctx.moveTo(sx, topY); ctx.lineTo(sx, baseY); ctx.stroke();
+    }
   }
   if(dayFactor<0.5){
-    const alphaBase = (0.5-dayFactor)*2;
-    const rows = Math.max(2, Math.floor(bh/(13*scale+1)));
-    const cols = Math.max(1, Math.floor(bw/(9*scale+1)));
+    const alphaBase = clamp((0.5-dayFactor)*2, 0, 1);
+    const cols = Math.max(2, Math.floor(bw/(9*scale+3)));
+    const rows = Math.max(3, Math.floor(bh/(12*scale+3)));
+    const cellW = bw/cols, cellH = bh/rows;
     for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
-      if(((r*31+c*17+Math.floor(t.hue*97))%5)===0){
-        ctx.fillStyle = `rgba(255,214,140,${0.5*alphaBase})`;
-        ctx.fillRect(x0+2+c*(bw/cols), topY+2+r*(bh/rows), Math.max(1,3*scale), Math.max(1,4*scale));
-      }
+      const wx = x0+c*cellW+cellW*0.14, wy = topY+r*cellH+cellH*0.18;
+      const ww = cellW*0.72, wh = cellH*0.6;
+      const lit = ((r*31+c*17+Math.floor(t.hue*97))%3)!==0;
+      ctx.fillStyle = lit
+        ? `rgba(255,214,140,${(0.72*alphaBase).toFixed(3)})`
+        : `rgba(6,8,14,${(0.4*alphaBase).toFixed(3)})`;
+      ctx.fillRect(wx, wy, ww, wh);
     }
   }
 }
@@ -782,15 +788,21 @@ function drawBurjKhalifa(ctx, cx, groundY, scaleBase, dayFactor){
     ctx.beginPath(); ctx.moveTo(cx+4*s,groundY-hgt*s); ctx.lineTo(cx+4*s,groundY-4*s); ctx.stroke();
   });
   if(dayFactor<0.5){
-    const rng = mulberry32(42);
-    const alphaBase = (0.5-dayFactor)*2;
-    for(let i=0;i<70;i++){
-      const tier = tiers[Math.floor(rng()*tiers.length)];
-      const yy = groundY - rng()*tier[1]*s;
-      const xx = cx + (rng()-0.5)*tier[2]*s*0.8;
-      ctx.fillStyle = `rgba(255,214,140,${0.55*alphaBase})`;
-      ctx.fillRect(xx,yy,Math.max(1,2*s),Math.max(1,3*s));
-    }
+    const alphaBase = clamp((0.5-dayFactor)*2, 0, 1);
+    tiers.forEach(([dx,hgt,tw], tierIdx)=>{
+      const tx0 = cx+dx*s - tw*s/2;
+      const tTop = groundY-hgt*s;
+      const tH = hgt*s, tW = tw*s;
+      const cols = Math.max(1, Math.floor(tW/(4*s+2)));
+      const rows = Math.max(4, Math.floor(tH/(9*s+2)));
+      const cellW = tW/cols, cellH = tH/rows;
+      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+        if(((r*31+c*17+tierIdx*13)%3)===0) continue;
+        const wx = tx0+c*cellW+cellW*0.2, wy = tTop+r*cellH+cellH*0.25;
+        ctx.fillStyle = `rgba(255,214,140,${(0.75*alphaBase).toFixed(3)})`;
+        ctx.fillRect(wx, wy, Math.max(1,cellW*0.6), Math.max(1,cellH*0.5));
+      }
+    });
   }
 }
 function drawDubaiRoad(ctx, w, h, horizonY, offsetX, time){
@@ -2105,13 +2117,10 @@ function announce(msg){ liveRegion.textContent = msg; }
 
 /* --- day/night --- */
 function computeTargetDayFactor(index){
+  const city = CITIES[index];
   if(dayNightMode === 'day') return 1;
   if(dayNightMode === 'night') return 0;
-  // Auto mode uses the viewer's own local time for every city, rather than
-  // each city's real timezone, so lighting stays in sync when switching —
-  // the per-city clock display still shows each city's true local time.
-  const now = new Date();
-  return autoDayFactor(now.getHours() + now.getMinutes()/60);
+  return autoDayFactor(getCityHourFraction(city.tz));
 }
 function refreshDayNightTargets(){
   if(stateA) stateA.dayFactorTarget = computeTargetDayFactor(stateA.cityIndex);
